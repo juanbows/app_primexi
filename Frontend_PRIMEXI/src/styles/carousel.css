@@ -1,0 +1,50 @@
+/* Custom styles for slick carousel */
+
+/* Override default dot colors */
+.slick-dots li button:before {
+  color: rgba(255, 255, 255, 0.3) !important;
+  font-size: 10px !important;
+}
+
+.slick-dots li.slick-active button:before {
+  color: #00ff85 !important;
+  opacity: 1 !important;
+}
+
+/* Ensure slides are properly spaced */
+.slick-slide > div {
+  display: flex;
+  justify-content: center;
+}
+
+/* Hide default arrows */
+.slick-prev,
+.slick-next {
+  display: none !important;
+}
+
+/* Smooth transitions for center mode */
+.slick-slide {
+  transition: all 0.3s ease;
+  opacity: 0.5;
+  transform: scale(0.85);
+}
+
+.slick-slide.slick-active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.slick-slide.slick-center {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Adjust dots spacing */
+.slick-dots {
+  bottom: -20px !important;
+}
+
+.slick-dots li {
+  margin: 0 4px !important;
+}

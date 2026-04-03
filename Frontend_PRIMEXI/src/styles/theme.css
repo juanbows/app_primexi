@@ -124,13 +124,26 @@
     @apply border-border outline-ring/50;
   }
 
+  html,
+  body,
+  #__next {
+    min-height: 100%;
+  }
+
   html {
     font-size: var(--font-size);
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground antialiased;
     min-height: 100vh;
+    font-family: var(--font-body);
+    background:
+      radial-gradient(circle at 15% 10%, rgba(4, 245, 255, 0.14), transparent 35%),
+      radial-gradient(circle at 85% 0%, rgba(0, 255, 133, 0.16), transparent 38%),
+      linear-gradient(180deg, #2a002b 0%, #17001f 52%, #120014 100%);
+    color: #f8f8ff;
+    overflow-x: hidden;
   }
 
   /**
@@ -142,18 +155,21 @@
     font-size: var(--text-2xl);
     font-weight: var(--font-weight-medium);
     line-height: 1.5;
+    font-family: var(--font-display);
   }
 
   h2 {
     font-size: var(--text-xl);
     font-weight: var(--font-weight-medium);
     line-height: 1.5;
+    font-family: var(--font-display);
   }
 
   h3 {
     font-size: var(--text-lg);
     font-weight: var(--font-weight-medium);
     line-height: 1.5;
+    font-family: var(--font-display);
   }
 
   h4 {
@@ -178,5 +194,48 @@
     font-size: var(--text-base);
     font-weight: var(--font-weight-normal);
     line-height: 1.5;
+  }
+}
+
+@layer utilities {
+  .app-shell {
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 20% -5%, rgba(0, 255, 133, 0.14), transparent 40%),
+      radial-gradient(circle at 95% 20%, rgba(4, 245, 255, 0.1), transparent 42%),
+      linear-gradient(180deg, #2a002b 0%, #15001d 56%, #0f0015 100%);
+  }
+
+  .app-noise {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.08;
+    background-image: radial-gradient(circle at 1px 1px, #ffffff 1px, transparent 0);
+    background-size: 30px 30px;
+  }
+
+  .safe-bottom {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+
+  .safe-top {
+    padding-top: calc(0.5rem + env(safe-area-inset-top));
+  }
+
+  .glass-panel {
+    backdrop-filter: blur(12px);
+    background: linear-gradient(145deg, rgba(43, 0, 55, 0.75), rgba(22, 0, 30, 0.82));
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 16px 50px -28px rgba(0, 0, 0, 0.95);
+  }
+
+  .scrollbar-hidden {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
   }
 }

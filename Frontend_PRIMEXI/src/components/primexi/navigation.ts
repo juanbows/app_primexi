@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { ArrowLeftRight, Home, Trophy, User, Users } from "lucide-react";
+import { ArrowLeftRight, Home, User, Users } from "lucide-react";
 
 export type NavItem = {
   id: string;
@@ -17,6 +17,5 @@ export const navItems: NavItem[] = [
     icon: ArrowLeftRight,
     label: "Traspasos",
   },
-  { id: "ligas", href: "/ligas", icon: Trophy, label: "Ligas" },
   { id: "perfil", href: "/perfil", icon: User, label: "Perfil" },
 ];

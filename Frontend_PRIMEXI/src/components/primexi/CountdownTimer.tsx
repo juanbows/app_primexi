@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { Clock } from "lucide-react";
 import { motion } from "motion/react";
+import type { CountdownData } from "@/lib/mocks/fpl";
 
 type TimeLeft = {
   days: number;
@@ -13,8 +14,32 @@ type TimeLeft = {
 };
 
 type CountdownTimerProps = {
-  gameweek: number;
+  countdown: CountdownData;
 };
+
+const emptyTimeLeft: TimeLeft = {
+  days: 0,
+  hours: 0,
+  minutes: 0,
+  seconds: 0,
+};
+
+function computeTimeLeft(deadlineTime: string): TimeLeft {
+  const diff = new Date(deadlineTime).getTime() - Date.now();
+
+  if (diff <= 0) {
+    return { days: 0, hours: 0, minutes: 0, seconds: 0 };
+  }
+
+  const totalSeconds = Math.floor(diff / 1000);
+
+  return {
+    days: Math.floor(totalSeconds / (24 * 60 * 60)),
+    hours: Math.floor((totalSeconds % (24 * 60 * 60)) / 3600),
+    minutes: Math.floor((totalSeconds % 3600) / 60),
+    seconds: totalSeconds % 60,
+  };
+}
 
 function TimeUnit({ value, label }: { value: number; label: string }) {
   return (
@@ -33,41 +58,30 @@ function TimeUnit({ value, label }: { value: number; label: string }) {
   );
 }
 
-export function CountdownTimer({ gameweek }: CountdownTimerProps) {
-  const [timeLeft, setTimeLeft] = useState<TimeLeft>({
-    days: 2,
-    hours: 14,
-    minutes: 35,
-    seconds: 42,
-  });
+export function CountdownTimer({ countdown }: CountdownTimerProps) {
+  const [timeLeft, setTimeLeft] = useState<TimeLeft>(emptyTimeLeft);
+  const deadlineLabel = new Intl.DateTimeFormat("es-CO", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Bogota",
+  }).format(new Date(countdown.deadlineTime));
 
   useEffect(() => {
+    const updateTimeLeft = () => {
+      setTimeLeft(computeTimeLeft(countdown.deadlineTime));
+    };
+
+    const initialTimer = window.setTimeout(updateTimeLeft, 0);
+
     const timer = window.setInterval(() => {
-      setTimeLeft((prev) => {
-        let { days, hours, minutes, seconds } = prev;
-
-        if (seconds > 0) {
-          seconds -= 1;
-        } else if (minutes > 0) {
-          minutes -= 1;
-          seconds = 59;
-        } else if (hours > 0) {
-          hours -= 1;
-          minutes = 59;
-          seconds = 59;
-        } else if (days > 0) {
-          days -= 1;
-          hours = 23;
-          minutes = 59;
-          seconds = 59;
-        }
-
-        return { days, hours, minutes, seconds };
-      });
+      updateTimeLeft();
     }, 1000);
 
-    return () => window.clearInterval(timer);
-  }, []);
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(timer);
+    };
+  }, [countdown.deadlineTime]);
 
   return (
     <motion.div
@@ -79,7 +93,7 @@ export function CountdownTimer({ gameweek }: CountdownTimerProps) {
       <div className="mb-3 flex items-center justify-center gap-2">
         <Clock className="h-5 w-5 text-[#04f5ff]" />
         <h2 className="text-sm font-medium text-white">
-          Deadline Countdown GW{gameweek}:
+          Deadline Countdown GW{countdown.gameweek}:
         </h2>
       </div>
 
@@ -94,7 +108,10 @@ export function CountdownTimer({ gameweek }: CountdownTimerProps) {
       </div>
 
       <p className="mt-3 text-center text-xs text-white/60">
-        Tiempo restante para GW{gameweek}
+        Tiempo restante para GW{countdown.gameweek}
+      </p>
+      <p className="mt-1 text-center text-[11px] text-white/45">
+        Deadline COT: {deadlineLabel}
       </p>
     </motion.div>
   );

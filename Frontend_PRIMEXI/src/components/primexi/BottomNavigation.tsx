@@ -11,6 +11,14 @@ function isActivePath(pathname: string, href: string) {
     return pathname === "/";
   }
 
+  if (href === "/perfil") {
+    return (
+      pathname === href ||
+      pathname.startsWith(`${href}/`) ||
+      pathname.startsWith("/profile")
+    );
+  }
+
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 

@@ -819,3 +819,168 @@ export const managerProfileMock: ManagerProfile = {
     { inPlayer: "William Saliba", outPlayer: "Joachim Andersen" },
   ],
 };
+
+export interface RankingEvolutionEntry {
+  gameweek: number;
+  rank: number;
+}
+
+export interface RankingComparison {
+  globalAverage: number;
+  leagueAverage: number;
+}
+
+export interface ProfileRankingData {
+  evolution: RankingEvolutionEntry[];
+  percentile: string;
+  comparison: RankingComparison;
+  summaryNote: string;
+}
+
+export interface ProfileRankingMock {
+  global: ProfileRankingData;
+  league: ProfileRankingData;
+}
+
+export const profileRankingMock: ProfileRankingMock = {
+  global: {
+    evolution: [
+      { gameweek: 27, rank: 81234 },
+      { gameweek: 28, rank: 76890 },
+      { gameweek: 29, rank: 70612 },
+      { gameweek: 30, rank: 63420 },
+      { gameweek: 31, rank: 51210 },
+      { gameweek: 32, rank: 48320 },
+    ],
+    percentile: "Top 6%",
+    comparison: {
+      globalAverage: 54,
+      leagueAverage: 62,
+    },
+    summaryNote: "2.3 pts por encima del promedio global",
+  },
+  league: {
+    evolution: [
+      { gameweek: 27, rank: 12 },
+      { gameweek: 28, rank: 9 },
+      { gameweek: 29, rank: 6 },
+      { gameweek: 30, rank: 5 },
+      { gameweek: 31, rank: 4 },
+      { gameweek: 32, rank: 3 },
+    ],
+    percentile: "Top 15%",
+    comparison: {
+      globalAverage: 54,
+      leagueAverage: 65,
+    },
+    summaryNote: "muy cerca del Top 3 en la liga privada",
+  },
+};
+
+export interface GameweekHistoryEntry {
+  gameweek: number;
+  points: number;
+  captain: string;
+  hit?: string;
+  benchPoints: number;
+}
+
+export const profileGameweeksMock: GameweekHistoryEntry[] = [
+  { gameweek: 27, points: 48, captain: "Saka", benchPoints: 6, hit: "-4" },
+  { gameweek: 28, points: 72, captain: "Haaland", benchPoints: 9 },
+  { gameweek: 29, points: 39, captain: "Watkins", benchPoints: 4, hit: "-8" },
+  { gameweek: 30, points: 61, captain: "Salah", benchPoints: 11 },
+  { gameweek: 31, points: 82, captain: "Haaland", benchPoints: 7 },
+  { gameweek: 32, points: 67, captain: "Foden", benchPoints: 5 },
+];
+
+export interface CaptainDecisionEntry {
+  gameweek: number;
+  captain: string;
+  viceCaptain: string;
+  captainPoints: number;
+  bestOptionPoints: number;
+  goodDecision: boolean;
+}
+
+export const profileCaptainMock: CaptainDecisionEntry[] = [
+  {
+    gameweek: 27,
+    captain: "Saka",
+    viceCaptain: "Haaland",
+    captainPoints: 12,
+    bestOptionPoints: 16,
+    goodDecision: false,
+  },
+  {
+    gameweek: 28,
+    captain: "Haaland",
+    viceCaptain: "Salah",
+    captainPoints: 20,
+    bestOptionPoints: 20,
+    goodDecision: true,
+  },
+  {
+    gameweek: 29,
+    captain: "Watkins",
+    viceCaptain: "Saka",
+    captainPoints: 8,
+    bestOptionPoints: 12,
+    goodDecision: false,
+  },
+  {
+    gameweek: 30,
+    captain: "Salah",
+    viceCaptain: "Haaland",
+    captainPoints: 18,
+    bestOptionPoints: 18,
+    goodDecision: true,
+  },
+  {
+    gameweek: 31,
+    captain: "Haaland",
+    viceCaptain: "Foden",
+    captainPoints: 24,
+    bestOptionPoints: 24,
+    goodDecision: true,
+  },
+  {
+    gameweek: 32,
+    captain: "Foden",
+    viceCaptain: "Haaland",
+    captainPoints: 14,
+    bestOptionPoints: 16,
+    goodDecision: false,
+  },
+];
+
+export interface ProfileTransferEntry {
+  gameweek: number;
+  outPlayer: string;
+  inPlayer: string;
+  cost: number;
+  impact: number;
+}
+
+export const profileTransfersMock: ProfileTransferEntry[] = [
+  { gameweek: 27, outPlayer: "Darwin Nunez", inPlayer: "Watkins", cost: 0, impact: 6 },
+  { gameweek: 28, outPlayer: "Bowen", inPlayer: "Palmer", cost: -4, impact: 9 },
+  { gameweek: 29, outPlayer: "Gordon", inPlayer: "Saka", cost: -8, impact: -2 },
+  { gameweek: 30, outPlayer: "Trippier", inPlayer: "Porro", cost: 0, impact: 3 },
+  { gameweek: 31, outPlayer: "Isak", inPlayer: "Haaland", cost: -4, impact: 12 },
+  { gameweek: 32, outPlayer: "Mitoma", inPlayer: "Foden", cost: 0, impact: 4 },
+];
+
+export interface ProfileSettings {
+  teamName: string;
+  email: string;
+  notifications: boolean;
+  theme: "dark" | "light";
+}
+
+export const profileSettingsMock: ProfileSettings = {
+  teamName: "Midnight XI FC",
+  email: "nicolas.suarez@primexi.com",
+  notifications: true,
+  theme: "dark",
+};

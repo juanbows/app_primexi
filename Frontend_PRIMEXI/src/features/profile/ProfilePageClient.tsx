@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowRightLeft, Award, Shield, Star, Trophy, Users } from "lucide-react";
+import Link from "next/link";
+import { ArrowRightLeft, Award, Shield, Settings, Star, Trophy, Users } from "lucide-react";
 
 import { managerProfileMock } from "@/lib/mocks/fpl";
 
@@ -106,6 +107,49 @@ export function ProfilePageClient() {
                 <span className="text-[#f0b3ff]">{transfer.outPlayer}</span>
               </div>
             ))}
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-white/10 bg-[#18001f]/80 p-4 shadow-[0_16px_45px_-30px_rgba(0,0,0,0.9)]">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold">Insights del perfil</p>
+            <Link
+              href="/profile/settings"
+              className="inline-flex items-center gap-2 rounded-full border border-[#00ff85]/30 bg-[#00ff85]/10 px-3 py-1 text-[11px] font-semibold text-[#b6ffe2]"
+            >
+              <Settings className="h-3 w-3" />
+              Ajustes
+            </Link>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+            <Link
+              href="/profile/ranking"
+              className="rounded-2xl border border-white/10 bg-[#120015] px-3 py-3 text-left transition hover:border-[#00ff85]/30"
+            >
+              <p className="text-xs text-white/60">Ranking</p>
+              <p className="mt-1 font-semibold">Detalle global</p>
+            </Link>
+            <Link
+              href="/profile/gameweeks"
+              className="rounded-2xl border border-white/10 bg-[#120015] px-3 py-3 text-left transition hover:border-[#00ff85]/30"
+            >
+              <p className="text-xs text-white/60">Puntos</p>
+              <p className="mt-1 font-semibold">Historial GW</p>
+            </Link>
+            <Link
+              href="/profile/captain"
+              className="rounded-2xl border border-white/10 bg-[#120015] px-3 py-3 text-left transition hover:border-[#00ff85]/30"
+            >
+              <p className="text-xs text-white/60">Capitán</p>
+              <p className="mt-1 font-semibold">Decisiones</p>
+            </Link>
+            <Link
+              href="/profile/transfers"
+              className="rounded-2xl border border-white/10 bg-[#120015] px-3 py-3 text-left transition hover:border-[#00ff85]/30"
+            >
+              <p className="text-xs text-white/60">Transfers</p>
+              <p className="mt-1 font-semibold">Historial</p>
+            </Link>
           </div>
         </div>
       </div>

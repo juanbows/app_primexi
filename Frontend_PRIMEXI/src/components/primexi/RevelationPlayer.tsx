@@ -1,40 +1,103 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import { Sparkles, Zap } from "lucide-react";
 import { motion } from "motion/react";
+import {
+  getRevelationPlayer,
+  type PlayerRecord,
+} from "@/services/homeService";
 
 type RevelationPlayerProps = {
   gameweek: number;
 };
 
-const revelations = [
-  {
-    name: "Gordon",
-    team: "NEW",
-    points: 12,
-    achievement: "Impacto Sorpresivo y xG Alto",
-  },
-  {
-    name: "Mbeumo",
-    team: "BRE",
-    points: 13,
-    achievement: "Doblete inesperado",
-  },
-  {
-    name: "Paqueta",
-    team: "WHU",
-    points: 11,
-    achievement: "Gol y dominio del medio",
-  },
-] as const;
+type RevelationCardData = {
+  name: string;
+  team: string;
+  points: number;
+  achievement: string;
+};
 
-function getRevelationForGameweek(gameweek: number) {
-  const index = (gameweek - 23) % revelations.length;
-  return index >= 0 ? revelations[index] : revelations[0];
+function formatPrice(price: number | string) {
+  return Number(price).toFixed(1);
+}
+
+function buildRevelationAchievement(player: PlayerRecord) {
+  const metrics = [];
+
+  if ((player.goals_scored ?? 0) > 0) {
+    metrics.push(`${player.goals_scored}G`);
+  }
+
+  if ((player.assists ?? 0) > 0) {
+    metrics.push(`${player.assists}A`);
+  }
+
+  if ((player.clean_sheets ?? 0) > 0) {
+    metrics.push(`${player.clean_sheets}CS`);
+  }
+
+  metrics.push(`${player.minutes ?? 0} min`);
+  metrics.push(`Precio ${formatPrice(player.price)}m`);
+
+  return metrics.join(" | ");
+}
+
+function mapRevelationPlayer(player: PlayerRecord): RevelationCardData {
+  return {
+    name: player.name,
+    team: player.team,
+    points: player.total_points ?? 0,
+    achievement: buildRevelationAchievement(player),
+  };
 }
 
 export function RevelationPlayer({ gameweek }: RevelationPlayerProps) {
-  const revelation = getRevelationForGameweek(gameweek);
+  const [revelation, setRevelation] = useState<RevelationCardData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadRevelationPlayer() {
+      setIsLoading(true);
+      setErrorMessage(null);
+      setRevelation(null);
+
+      try {
+        const player = await getRevelationPlayer(gameweek);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setRevelation(player ? mapRevelationPlayer(player) : null);
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "No se pudo cargar el jugador revelacion.",
+        );
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadRevelationPlayer();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [gameweek]);
 
   return (
     <motion.section
@@ -77,30 +140,46 @@ export function RevelationPlayer({ gameweek }: RevelationPlayerProps) {
         </motion.div>
 
         <div className="relative z-10 space-y-4">
-          <div className="flex items-center justify-center gap-3">
-            <div className="text-center">
-              <h3 className="mb-1 text-3xl font-bold text-white">
-                {revelation.name}
-              </h3>
-              <p className="text-sm text-[#04f5ff]">({revelation.team})</p>
+          {isLoading ? (
+            <div className="space-y-4">
+              <div className="mx-auto h-10 w-44 rounded-full bg-white/10" />
+              <div className="mx-auto h-16 w-40 rounded-2xl bg-white/10" />
+              <div className="mx-auto h-5 w-56 rounded-full bg-white/10" />
             </div>
-          </div>
+          ) : errorMessage ? (
+            <p className="text-center text-sm text-white/80">{errorMessage}</p>
+          ) : revelation ? (
+            <>
+              <div className="flex items-center justify-center gap-3">
+                <div className="text-center">
+                  <h3 className="mb-1 text-3xl font-bold text-white">
+                    {revelation.name}
+                  </h3>
+                  <p className="text-sm text-[#04f5ff]">({revelation.team})</p>
+                </div>
+              </div>
 
-          <div className="flex items-center justify-center gap-2 rounded-2xl border border-[#e90052]/40 bg-gradient-to-r from-[#e90052]/30 to-[#04f5ff]/30 px-6 py-4 shadow-lg shadow-[#e90052]/30">
-            <Zap className="h-8 w-8 text-[#00ff85]" />
-            <span className="bg-gradient-to-r from-[#00ff85] to-[#04f5ff] bg-clip-text text-5xl font-bold text-transparent">
-              {revelation.points}
-            </span>
-            <span className="text-xl text-[#00ff85]">PTS</span>
-          </div>
+              <div className="flex items-center justify-center gap-2 rounded-2xl border border-[#e90052]/40 bg-gradient-to-r from-[#e90052]/30 to-[#04f5ff]/30 px-6 py-4 shadow-lg shadow-[#e90052]/30">
+                <Zap className="h-8 w-8 text-[#00ff85]" />
+                <span className="bg-gradient-to-r from-[#00ff85] to-[#04f5ff] bg-clip-text text-5xl font-bold text-transparent">
+                  {revelation.points}
+                </span>
+                <span className="text-xl text-[#00ff85]">PTS</span>
+              </div>
 
-          <div className="flex items-center justify-center gap-2 text-center">
-            <Sparkles className="h-4 w-4 text-[#00ff85]" />
-            <p className="text-sm font-medium text-white">
-              {revelation.achievement}
+              <div className="flex items-center justify-center gap-2 text-center">
+                <Sparkles className="h-4 w-4 text-[#00ff85]" />
+                <p className="text-sm font-medium text-white">
+                  {revelation.achievement}
+                </p>
+                <Sparkles className="h-4 w-4 text-[#00ff85]" />
+              </div>
+            </>
+          ) : (
+            <p className="text-center text-sm text-white/80">
+              No hay jugador revelacion disponible.
             </p>
-            <Sparkles className="h-4 w-4 text-[#00ff85]" />
-          </div>
+          )}
         </div>
       </motion.div>
     </motion.section>

@@ -1,15 +1,16 @@
 "use client";
 
 import Image from "next/image";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ChevronLeft, ChevronRight, Trophy, TrendingUp } from "lucide-react";
 import { motion } from "motion/react";
 import Slider from "react-slick";
 import type { Settings } from "react-slick";
+import { getTopPlayers, type PlayerRecord } from "@/services/homeService";
 
 type Player = {
-  id: number;
+  id: string;
   name: string;
   team: string;
   points: number;
@@ -21,150 +22,6 @@ type Player = {
 type TopPlayersProps = {
   gameweek: number;
 };
-
-const allPlayers: Player[][] = [
-  [
-    {
-      id: 1,
-      name: "Foden",
-      team: "MCI",
-      points: 18,
-      achievement: "Hat trick y MVP",
-      position: 1,
-      image: "https://images.unsplash.com/photo-1765046876564-aa4034b6c71a?w=400",
-    },
-    {
-      id: 2,
-      name: "Isak",
-      team: "NEW",
-      points: 15,
-      achievement: "Doble Gol",
-      position: 2,
-      image: "https://images.unsplash.com/photo-1701363539457-875b9bc9bbc1?w=400",
-    },
-    {
-      id: 3,
-      name: "Palmer",
-      team: "CHE",
-      points: 14,
-      achievement: "Gol y Asistencia",
-      position: 3,
-      image: "https://images.unsplash.com/photo-1632300873131-1dd749c83f97?w=400",
-    },
-    {
-      id: 4,
-      name: "Salah",
-      team: "LIV",
-      points: 13,
-      achievement: "Gol y Assist",
-      position: 4,
-      image: "https://images.unsplash.com/photo-1765046876564-aa4034b6c71a?w=400",
-    },
-    {
-      id: 5,
-      name: "Saka",
-      team: "ARS",
-      points: 12,
-      achievement: "Gol de MVP",
-      position: 5,
-      image: "https://images.unsplash.com/photo-1701363539457-875b9bc9bbc1?w=400",
-    },
-  ],
-  [
-    {
-      id: 1,
-      name: "Haaland",
-      team: "MCI",
-      points: 20,
-      achievement: "Triplete Historico",
-      position: 1,
-      image: "https://images.unsplash.com/photo-1632300873131-1dd749c83f97?w=400",
-    },
-    {
-      id: 2,
-      name: "Salah",
-      team: "LIV",
-      points: 16,
-      achievement: "Doblete",
-      position: 2,
-      image: "https://images.unsplash.com/photo-1765046876564-aa4034b6c71a?w=400",
-    },
-    {
-      id: 3,
-      name: "Son",
-      team: "TOT",
-      points: 14,
-      achievement: "Gol y 2 Assists",
-      position: 3,
-      image: "https://images.unsplash.com/photo-1701363539457-875b9bc9bbc1?w=400",
-    },
-    {
-      id: 4,
-      name: "Watkins",
-      team: "AVL",
-      points: 13,
-      achievement: "Doblete Crucial",
-      position: 4,
-      image: "https://images.unsplash.com/photo-1632300873131-1dd749c83f97?w=400",
-    },
-    {
-      id: 5,
-      name: "Foden",
-      team: "MCI",
-      points: 11,
-      achievement: "Asistencias",
-      position: 5,
-      image: "https://images.unsplash.com/photo-1765046876564-aa4034b6c71a?w=400",
-    },
-  ],
-  [
-    {
-      id: 1,
-      name: "Palmer",
-      team: "CHE",
-      points: 19,
-      achievement: "Hat trick perfecto",
-      position: 1,
-      image: "https://images.unsplash.com/photo-1701363539457-875b9bc9bbc1?w=400",
-    },
-    {
-      id: 2,
-      name: "Isak",
-      team: "NEW",
-      points: 14,
-      achievement: "Doblete",
-      position: 2,
-      image: "https://images.unsplash.com/photo-1632300873131-1dd749c83f97?w=400",
-    },
-    {
-      id: 3,
-      name: "Bowen",
-      team: "WHU",
-      points: 13,
-      achievement: "Gol y Assist",
-      position: 3,
-      image: "https://images.unsplash.com/photo-1765046876564-aa4034b6c71a?w=400",
-    },
-    {
-      id: 4,
-      name: "De Bruyne",
-      team: "MCI",
-      points: 12,
-      achievement: "3 Asistencias",
-      position: 4,
-      image: "https://images.unsplash.com/photo-1701363539457-875b9bc9bbc1?w=400",
-    },
-    {
-      id: 5,
-      name: "Rashford",
-      team: "MUN",
-      points: 11,
-      achievement: "Gol clave",
-      position: 5,
-      image: "https://images.unsplash.com/photo-1632300873131-1dd749c83f97?w=400",
-    },
-  ],
-];
 
 const positionColors = {
   1: {
@@ -199,9 +56,46 @@ const positionColors = {
   },
 } as const;
 
-function getPlayersForGameweek(gameweek: number) {
-  const index = (gameweek - 23) % allPlayers.length;
-  return index >= 0 ? allPlayers[index] : allPlayers[0];
+const positionImages: Record<string, string> = {
+  FWD: "https://images.unsplash.com/photo-1632300873131-1dd749c83f97?w=400",
+  MID: "https://images.unsplash.com/photo-1701363539457-875b9bc9bbc1?w=400",
+  DEF: "https://images.unsplash.com/photo-1765046876564-aa4034b6c71a?w=400",
+  GK: "https://images.unsplash.com/photo-1765046876564-aa4034b6c71a?w=400",
+};
+
+function buildGameweekAchievement(player: PlayerRecord) {
+  const metrics = [];
+
+  if ((player.goals_scored ?? 0) > 0) {
+    metrics.push(`${player.goals_scored}G`);
+  }
+
+  if ((player.assists ?? 0) > 0) {
+    metrics.push(`${player.assists}A`);
+  }
+
+  if ((player.clean_sheets ?? 0) > 0) {
+    metrics.push(`${player.clean_sheets}CS`);
+  }
+
+  metrics.push(`${player.minutes ?? 0} min`);
+
+  return metrics.join(" | ");
+}
+
+function mapPlayerToCard(player: PlayerRecord, rank: number): Player {
+  return {
+    id: player.id,
+    name: player.name,
+    team: player.team,
+    points: player.total_points ?? 0,
+    achievement: buildGameweekAchievement(player),
+    position: rank,
+    image:
+      player.photo ??
+      positionImages[player.position] ??
+      "https://images.unsplash.com/photo-1632300873131-1dd749c83f97?w=400",
+  };
 }
 
 function PlayerCard({ player }: { player: Player }) {
@@ -259,12 +153,56 @@ function PlayerCard({ player }: { player: Player }) {
 }
 
 export function TopPlayers({ gameweek }: TopPlayersProps) {
-  const players = getPlayersForGameweek(gameweek);
   const sliderRef = useRef<Slider | null>(null);
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadTopPlayers() {
+      setIsLoading(true);
+      setErrorMessage(null);
+      setPlayers([]);
+
+      try {
+        const topPlayers = await getTopPlayers(gameweek);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setPlayers(
+          topPlayers.map((player, index) => mapPlayerToCard(player, index + 1)),
+        );
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "No se pudieron cargar los jugadores.",
+        );
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadTopPlayers();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [gameweek]);
 
   const settings: Settings = {
     dots: true,
-    infinite: true,
+    infinite: players.length > 1,
     speed: 500,
     slidesToShow: 1,
     slidesToScroll: 1,
@@ -290,37 +228,49 @@ export function TopPlayers({ gameweek }: TopPlayersProps) {
         <h2 className="text-xl font-bold text-white">Top 5 de la Jornada</h2>
       </div>
 
-      <div className="relative">
-        <motion.button
-          type="button"
-          aria-label="Ver jugador anterior"
-          onClick={() => sliderRef.current?.slickPrev()}
-          className="absolute left-0 top-1/2 z-20 rounded-full border-2 border-[#00ff85] bg-[#00ff85]/90 p-3 text-[#38003c] shadow-lg shadow-[#00ff85]/50"
-          whileHover={{ scale: 1.15, backgroundColor: "rgba(0, 255, 133, 1)" }}
-          whileTap={{ scale: 0.9 }}
-        >
-          <ChevronLeft className="h-6 w-6" />
-        </motion.button>
-
-        <div className="relative -mx-4">
-          <Slider ref={sliderRef} {...settings}>
-            {players.map((player) => (
-              <PlayerCard key={player.id} player={player} />
-            ))}
-          </Slider>
+      {isLoading ? (
+        <div className="h-[28rem] rounded-3xl border-2 border-white/10 bg-[#38003c]/50" />
+      ) : errorMessage ? (
+        <div className="rounded-3xl border-2 border-[#e90052]/30 bg-[#38003c]/70 p-6 text-center text-sm text-white/80">
+          {errorMessage}
         </div>
+      ) : players.length === 0 ? (
+        <div className="rounded-3xl border-2 border-white/10 bg-[#38003c]/50 p-6 text-center text-sm text-white/80">
+          No hay jugadores disponibles para la jornada.
+        </div>
+      ) : (
+        <div className="relative">
+          <motion.button
+            type="button"
+            aria-label="Ver jugador anterior"
+            onClick={() => sliderRef.current?.slickPrev()}
+            className="absolute left-0 top-1/2 z-20 rounded-full border-2 border-[#00ff85] bg-[#00ff85]/90 p-3 text-[#38003c] shadow-lg shadow-[#00ff85]/50"
+            whileHover={{ scale: 1.15, backgroundColor: "rgba(0, 255, 133, 1)" }}
+            whileTap={{ scale: 0.9 }}
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </motion.button>
 
-        <motion.button
-          type="button"
-          aria-label="Ver siguiente jugador"
-          onClick={() => sliderRef.current?.slickNext()}
-          className="absolute right-0 top-1/2 z-20 rounded-full border-2 border-[#00ff85] bg-[#00ff85]/90 p-3 text-[#38003c] shadow-lg shadow-[#00ff85]/50"
-          whileHover={{ scale: 1.15, backgroundColor: "rgba(0, 255, 133, 1)" }}
-          whileTap={{ scale: 0.9 }}
-        >
-          <ChevronRight className="h-6 w-6" />
-        </motion.button>
-      </div>
+          <div className="relative -mx-4">
+            <Slider ref={sliderRef} {...settings}>
+              {players.map((player) => (
+                <PlayerCard key={player.id} player={player} />
+              ))}
+            </Slider>
+          </div>
+
+          <motion.button
+            type="button"
+            aria-label="Ver siguiente jugador"
+            onClick={() => sliderRef.current?.slickNext()}
+            className="absolute right-0 top-1/2 z-20 rounded-full border-2 border-[#00ff85] bg-[#00ff85]/90 p-3 text-[#38003c] shadow-lg shadow-[#00ff85]/50"
+            whileHover={{ scale: 1.15, backgroundColor: "rgba(0, 255, 133, 1)" }}
+            whileTap={{ scale: 0.9 }}
+          >
+            <ChevronRight className="h-6 w-6" />
+          </motion.button>
+        </div>
+      )}
     </motion.section>
   );
 }

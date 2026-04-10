@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { startTransition, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 
 import { CountdownTimer } from "@/components/primexi/CountdownTimer";
 import { NewsIntelligence } from "@/components/primexi/NewsIntelligence";
@@ -13,6 +13,7 @@ import {
   initialGameweek,
   type StatusLevel,
 } from "@/lib/mocks/fpl";
+import { getCurrentGameweek } from "@/services/homeService";
 
 const TopPlayers = dynamic(
   () =>
@@ -30,6 +31,33 @@ const TopPlayers = dynamic(
 
 export function PrimexiHome() {
   const [currentGameweek, setCurrentGameweek] = useState(initialGameweek);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadCurrentGameweek() {
+      try {
+        const gameweek = await getCurrentGameweek();
+
+        if (!isMounted) {
+          return;
+        }
+
+        startTransition(() => {
+          setCurrentGameweek(gameweek);
+        });
+      } catch {
+        // Keep the existing fallback if the live FPL request fails.
+      }
+    }
+
+    void loadCurrentGameweek();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const summary = getHomeSummaryForGameweek(currentGameweek);
 
   return (

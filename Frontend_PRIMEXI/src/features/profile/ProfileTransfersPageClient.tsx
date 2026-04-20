@@ -1,43 +1,72 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { profileTransfersMock } from "@/lib/mocks/fpl";
-import {
-  Card,
-  CardTitle,
-  InsightBadge,
-  SectionHeader,
-} from "@/features/profile/components/ProfileUi";
+import { getTransfers } from "@/lib/data";
+import { Card, CardTitle, SectionHeader } from "@/features/profile/components/ProfileUi";
+
+type TransferItem = {
+  id: string;
+  gameweek: number;
+  player_in: string;
+  player_out: string;
+};
 
 export function ProfileTransfersPageClient() {
   const [playerFilter, setPlayerFilter] = useState("all");
   const [gwFilter, setGwFilter] = useState("all");
+  const [transfers, setTransfers] = useState<TransferItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadTransfers() {
+      try {
+        const data = await getTransfers();
+        if (mounted) {
+          setTransfers(data ?? []);
+        }
+      } catch (error) {
+        console.error("Failed to load profile transfers", error);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadTransfers();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const playerOptions = useMemo(() => {
     const names = new Set<string>();
-    profileTransfersMock.forEach((entry) => {
-      names.add(entry.inPlayer);
-      names.add(entry.outPlayer);
+    transfers.forEach((entry) => {
+      names.add(entry.player_in);
+      names.add(entry.player_out);
     });
     return ["all", ...Array.from(names)];
-  }, []);
+  }, [transfers]);
 
   const gwOptions = useMemo(
-    () => ["all", ...profileTransfersMock.map((entry) => `GW ${entry.gameweek}`)],
-    [],
+    () => ["all", ...transfers.map((entry) => `GW ${entry.gameweek}`)],
+    [transfers],
   );
 
   const filtered = useMemo(() => {
-    return profileTransfersMock.filter((entry) => {
+    return transfers.filter((entry) => {
       const matchesPlayer =
         playerFilter === "all" ||
-        entry.inPlayer === playerFilter ||
-        entry.outPlayer === playerFilter;
+        entry.player_in === playerFilter ||
+        entry.player_out === playerFilter;
       const matchesGw = gwFilter === "all" || gwFilter === `GW ${entry.gameweek}`;
       return matchesPlayer && matchesGw;
     });
-  }, [playerFilter, gwFilter]);
+  }, [gwFilter, playerFilter, transfers]);
 
   return (
     <section className="space-y-6 pt-2">
@@ -77,31 +106,22 @@ export function ProfileTransfersPageClient() {
 
       <Card className="space-y-3">
         <CardTitle>Movimientos</CardTitle>
+        {loading ? <p className="text-sm text-white/60">Cargando...</p> : null}
         <div className="space-y-2">
           {filtered.map((entry) => (
             <div
-              key={`${entry.gameweek}-${entry.inPlayer}-${entry.outPlayer}`}
+              key={entry.id}
               className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#120015] px-4 py-3 text-sm"
             >
               <div>
                 <p className="text-sm font-semibold">GW {entry.gameweek}</p>
                 <p className="text-xs text-white/60">
-                  {entry.outPlayer} → {entry.inPlayer}
+                  {entry.player_out} → {entry.player_in}
                 </p>
-                <p className="text-[11px] text-white/50">Costo: {entry.cost} pts</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-semibold">{entry.impact > 0 ? "+" : ""}{entry.impact} pts</p>
-                <div className="mt-1 flex items-center justify-end gap-2">
-                  <InsightBadge
-                    label={entry.impact >= 0 ? "Buen transfer" : "Mal transfer"}
-                    good={entry.impact >= 0}
-                  />
-                </div>
               </div>
             </div>
           ))}
-          {filtered.length === 0 ? (
+          {!loading && filtered.length === 0 ? (
             <div className="rounded-2xl border border-white/10 bg-[#120015] px-4 py-6 text-center text-sm text-white/60">
               No hay transfers con esos filtros.
             </div>

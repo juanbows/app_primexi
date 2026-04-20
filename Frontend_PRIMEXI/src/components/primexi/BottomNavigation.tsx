@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { motion } from "motion/react";
 
 import { navItems } from "@/components/primexi/navigation";
+import { useAuthUser } from "@/lib/useAuthUser";
 
 function isActivePath(pathname: string, href: string) {
   if (href === "/") {
@@ -19,11 +20,16 @@ function isActivePath(pathname: string, href: string) {
     );
   }
 
+  if (href === "/login") {
+    return pathname === "/login";
+  }
+
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 export function BottomNavigation() {
   const pathname = usePathname() ?? "/";
+  const { user } = useAuthUser();
 
   return (
     <div className="safe-bottom fixed inset-x-0 bottom-0 z-50 px-4 pt-2">
@@ -36,12 +42,13 @@ export function BottomNavigation() {
         <div className="mx-auto flex items-center justify-around">
           {navItems.map((item, index) => {
             const Icon = item.icon;
-            const isActive = isActivePath(pathname, item.href);
+            const href = item.id === "perfil" ? (user ? "/perfil" : "/login") : item.href;
+            const isActive = isActivePath(pathname, href);
 
             return (
               <Link
                 key={item.id}
-                href={item.href}
+                href={href}
                 aria-current={isActive ? "page" : undefined}
                 className="relative flex min-w-[72px] flex-col items-center gap-1 rounded-2xl px-3 py-2.5 transition-all"
               >

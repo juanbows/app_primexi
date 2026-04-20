@@ -1,14 +1,58 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
-import { profileSettingsMock } from "@/lib/mocks/fpl";
+import { signOut } from "@/lib/auth";
+import { getProfile } from "@/lib/data";
 import { Card, CardTitle, SectionHeader } from "@/features/profile/components/ProfileUi";
 
 export function ProfileSettingsPageClient() {
-  const [teamName, setTeamName] = useState(profileSettingsMock.teamName);
-  const [notifications, setNotifications] = useState(profileSettingsMock.notifications);
-  const [theme, setTheme] = useState(profileSettingsMock.theme);
+  const router = useRouter();
+  const [teamName, setTeamName] = useState("Mi equipo");
+  const [email, setEmail] = useState("-");
+  const [notifications, setNotifications] = useState(true);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [loading, setLoading] = useState(true);
+  const [signingOut, setSigningOut] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadProfile() {
+      try {
+        const profile = await getProfile();
+        if (!mounted || !profile) return;
+
+        setTeamName(profile.team_name ?? "Mi equipo");
+        setEmail(profile.email ?? "-");
+      } catch (error) {
+        console.error("Failed to load settings profile", error);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadProfile();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    try {
+      await signOut();
+      router.replace("/login");
+    } catch (error) {
+      console.error("Sign out failed", error);
+    } finally {
+      setSigningOut(false);
+    }
+  }
 
   return (
     <section className="space-y-6 pt-2">
@@ -23,22 +67,6 @@ export function ProfileSettingsPageClient() {
               className="mt-2 w-full rounded-2xl border border-white/10 bg-[#120015] px-4 py-3 text-sm text-white"
             />
           </label>
-          <div className="rounded-2xl border border-white/10 bg-[#120015] px-4 py-3 text-sm text-white/70">
-            Avatar actual
-            <div className="mt-3 flex items-center gap-3">
-              <div className="h-12 w-12 rounded-full bg-gradient-to-br from-[#00ff85] via-[#7c3aed] to-[#00d4ff] p-[2px]">
-                <div className="flex h-full w-full items-center justify-center rounded-full bg-[#140015] text-xs text-white/70">
-                  IMG
-                </div>
-              </div>
-              <button
-                type="button"
-                className="rounded-2xl border border-[#00ff85]/30 bg-[#00ff85]/10 px-3 py-2 text-xs font-semibold text-[#b6ffe2]"
-              >
-                Cambiar avatar
-              </button>
-            </div>
-          </div>
         </div>
       </Card>
 
@@ -92,13 +120,15 @@ export function ProfileSettingsPageClient() {
         <CardTitle>Cuenta</CardTitle>
         <div className="rounded-2xl border border-white/10 bg-[#120015] px-4 py-3 text-sm">
           <p className="text-xs text-white/60">Email</p>
-          <p className="mt-1 font-semibold">{profileSettingsMock.email}</p>
+          <p className="mt-1 font-semibold">{loading ? "Cargando..." : email}</p>
         </div>
         <button
           type="button"
-          className="w-full rounded-2xl border border-[#e90052]/30 bg-[#e90052]/10 px-4 py-3 text-sm font-semibold text-[#f5a3c1]"
+          onClick={handleSignOut}
+          disabled={signingOut}
+          className="w-full rounded-2xl border border-[#e90052]/30 bg-[#e90052]/10 px-4 py-3 text-sm font-semibold text-[#f5a3c1] disabled:opacity-60"
         >
-          Cerrar sesión
+          {signingOut ? "Cerrando sesión..." : "Cerrar sesión"}
         </button>
       </Card>
     </section>

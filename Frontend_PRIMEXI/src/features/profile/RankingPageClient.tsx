@@ -55,7 +55,13 @@ export function RankingPageClient() {
         <SectionHeader
           title="Ranking"
           description="Detalle de ranking y evolución"
-          action={<ToggleGroup options={toggleOptions} value={mode} onChange={setMode} />}
+          action={
+            <ToggleGroup
+              options={toggleOptions}
+              value={mode}
+              onChange={(next) => setMode(next as RankingMode)}
+            />
+          }
         />
         <div className="mt-4 rounded-2xl border border-white/10 bg-[#110015] p-4">
           <div className="flex items-center justify-between">

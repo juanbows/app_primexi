@@ -7,6 +7,11 @@ import { signOut } from "@/lib/auth";
 import { getProfile } from "@/lib/data";
 import { Card, CardTitle, SectionHeader } from "@/features/profile/components/ProfileUi";
 
+type ProfileRecord = {
+  team_name?: string | null;
+  email?: string | null;
+};
+
 export function ProfileSettingsPageClient() {
   const router = useRouter();
   const [teamName, setTeamName] = useState("Mi equipo");
@@ -21,7 +26,7 @@ export function ProfileSettingsPageClient() {
 
     async function loadProfile() {
       try {
-        const profile = await getProfile();
+        const profile = (await getProfile()) as ProfileRecord | null;
         if (!mounted || !profile) return;
 
         setTeamName(profile.team_name ?? "Mi equipo");

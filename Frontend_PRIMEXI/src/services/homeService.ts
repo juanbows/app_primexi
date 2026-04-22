@@ -332,7 +332,7 @@ async function getHomeContextFromSupabase() {
   return buildHomeContext((data ?? []) as GameweekRow[]);
 }
 
-async function getLatestSyncedGameweek() {
+async function getLatestSyncedGameweek(): Promise<number | null> {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from("players")
@@ -345,10 +345,13 @@ async function getLatestSyncedGameweek() {
     throw error;
   }
 
-  return Number.isInteger(data?.gameweek) ? data.gameweek : null;
+  const latestGameweekRow = data as { gameweek?: number | null } | null;
+  const latestGameweek = latestGameweekRow?.gameweek ?? null;
+
+  return Number.isInteger(latestGameweek) ? latestGameweek : null;
 }
 
-export async function getHomeContext() {
+export async function getHomeContext(): Promise<HomeContext> {
   const latestSyncedGameweek = await getLatestSyncedGameweek().catch(() => null);
 
   try {
@@ -366,13 +369,13 @@ export async function getHomeContext() {
     const data = (await response.json()) as CurrentGameweekResponse;
     return {
       ...buildHomeContext(data.events),
-      latestSyncedGameweek,
+      latestSyncedGameweek: latestSyncedGameweek ?? null,
     };
   } catch {
     const fallbackContext = await getHomeContextFromSupabase();
     return {
       ...fallbackContext,
-      latestSyncedGameweek,
+      latestSyncedGameweek: latestSyncedGameweek ?? null,
     };
   }
 }
@@ -382,7 +385,7 @@ export async function getCurrentGameweek() {
   return homeContext.currentGameweek;
 }
 
-export async function getNewsInsights(gameweek: number) {
+export async function getNewsInsights(gameweek: number): Promise<HomeInsight[]> {
   const supabase = getSupabaseClient();
   const commonQuery = supabase
     .from("players")
@@ -435,7 +438,7 @@ export async function getNewsInsights(gameweek: number) {
     throw transferOutResult.error;
   }
 
-  return [
+  const insights: Array<HomeInsight | null> = [
     buildAvailabilityInsight(
       (availabilityCandidatesResult.data ?? []) as PlayerInsightRow[],
     ),
@@ -446,5 +449,7 @@ export async function getNewsInsights(gameweek: number) {
     buildTransferOutInsight(
       (transferOutResult.data ?? null) as PlayerInsightRow | null,
     ),
-  ].filter((insight): insight is HomeInsight => insight !== null);
+  ];
+
+  return insights.filter((insight): insight is HomeInsight => insight !== null);
 }

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { Clock } from "lucide-react";
 import { motion } from "motion/react";
-import type { CountdownData } from "@/lib/mocks/fpl";
+import type { HomeCountdown } from "@/services/homeService";
 
 type TimeLeft = {
   days: number;
@@ -14,7 +14,7 @@ type TimeLeft = {
 };
 
 type CountdownTimerProps = {
-  countdown: CountdownData;
+  countdown: HomeCountdown | null;
 };
 
 const emptyTimeLeft: TimeLeft = {
@@ -60,13 +60,12 @@ function TimeUnit({ value, label }: { value: number; label: string }) {
 
 export function CountdownTimer({ countdown }: CountdownTimerProps) {
   const [timeLeft, setTimeLeft] = useState<TimeLeft>(emptyTimeLeft);
-  const deadlineLabel = new Intl.DateTimeFormat("es-CO", {
-    dateStyle: "short",
-    timeStyle: "short",
-    timeZone: "America/Bogota",
-  }).format(new Date(countdown.deadlineTime));
 
   useEffect(() => {
+    if (!countdown) {
+      return;
+    }
+
     const updateTimeLeft = () => {
       setTimeLeft(computeTimeLeft(countdown.deadlineTime));
     };
@@ -81,7 +80,33 @@ export function CountdownTimer({ countdown }: CountdownTimerProps) {
       window.clearTimeout(initialTimer);
       window.clearInterval(timer);
     };
-  }, [countdown.deadlineTime]);
+  }, [countdown]);
+
+  if (!countdown) {
+    return (
+      <motion.div
+        className="rounded-2xl border-2 border-[#00ff85]/20 bg-gradient-to-r from-[#38003c]/80 to-[#38003c]/60 p-6 backdrop-blur-sm"
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
+      >
+        <div className="mb-3 flex items-center justify-center gap-2">
+          <Clock className="h-5 w-5 text-[#04f5ff]" />
+          <h2 className="text-sm font-medium text-white">Deadline FPL</h2>
+        </div>
+
+        <p className="text-center text-sm text-white/70">
+          No hay un deadline futuro disponible en este momento.
+        </p>
+      </motion.div>
+    );
+  }
+
+  const deadlineLabel = new Intl.DateTimeFormat("es-CO", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Bogota",
+  }).format(new Date(countdown.deadlineTime));
 
   return (
     <motion.div
@@ -93,7 +118,7 @@ export function CountdownTimer({ countdown }: CountdownTimerProps) {
       <div className="mb-3 flex items-center justify-center gap-2">
         <Clock className="h-5 w-5 text-[#04f5ff]" />
         <h2 className="text-sm font-medium text-white">
-          Deadline Countdown GW{countdown.gameweek}:
+          Proximo deadline GW{countdown.gameweek}
         </h2>
       </div>
 
@@ -108,7 +133,7 @@ export function CountdownTimer({ countdown }: CountdownTimerProps) {
       </div>
 
       <p className="mt-3 text-center text-xs text-white/60">
-        Tiempo restante para GW{countdown.gameweek}
+        Tiempo restante para cerrar la GW{countdown.gameweek}
       </p>
       <p className="mt-1 text-center text-[11px] text-white/45">
         Deadline COT: {deadlineLabel}

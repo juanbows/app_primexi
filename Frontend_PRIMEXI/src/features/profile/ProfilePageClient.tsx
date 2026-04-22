@@ -37,7 +37,7 @@ function buildInitials(teamName: string) {
 }
 
 export function ProfilePageClient() {
-  const { user, loading: authLoading } = useAuthUser({ required: true, redirectTo: "/login" });
+  const { user, loading: authLoading } = useAuthUser({ required: true, redirectTo: "/" });
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [gameweeks, setGameweeks] = useState<GameweekData[]>([]);
   const [transfers, setTransfers] = useState<TransferData[]>([]);

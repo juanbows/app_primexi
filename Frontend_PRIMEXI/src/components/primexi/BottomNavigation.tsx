@@ -8,8 +8,8 @@ import { navItems } from "@/components/primexi/navigation";
 import { useAuthUser } from "@/lib/useAuthUser";
 
 function isActivePath(pathname: string, href: string) {
-  if (href === "/") {
-    return pathname === "/";
+  if (href === "/inicio") {
+    return pathname === href;
   }
 
   if (href === "/perfil") {
@@ -18,10 +18,6 @@ function isActivePath(pathname: string, href: string) {
       pathname.startsWith(`${href}/`) ||
       pathname.startsWith("/profile")
     );
-  }
-
-  if (href === "/login") {
-    return pathname === "/login";
   }
 
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -42,7 +38,7 @@ export function BottomNavigation() {
         <div className="mx-auto flex items-center justify-around">
           {navItems.map((item, index) => {
             const Icon = item.icon;
-            const href = item.id === "perfil" ? (user ? "/perfil" : "/login") : item.href;
+            const href = item.id === "perfil" ? (user ? "/perfil" : "/") : item.href;
             const isActive = isActivePath(pathname, href);
 
             return (

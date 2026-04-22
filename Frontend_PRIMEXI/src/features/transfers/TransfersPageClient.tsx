@@ -13,7 +13,7 @@ type TransferItem = {
 };
 
 export default function TransfersPageClient() {
-  const { user, loading: authLoading } = useAuthUser({ required: true, redirectTo: "/login" });
+  const { user, loading: authLoading } = useAuthUser({ required: true, redirectTo: "/" });
   const [transfers, setTransfers] = useState<TransferItem[]>([]);
   const [gameweek, setGameweek] = useState("");
   const [playerIn, setPlayerIn] = useState("");

@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { PrimexiShell } from "@/components/primexi/PrimexiShell";
-import { createUserProfile, signIn, signUp } from "@/lib/auth";
+import { createUserProfile, signIn, signInWithGoogle, signUp } from "@/lib/auth";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuthUser } from "@/lib/useAuthUser";
 
@@ -50,11 +50,16 @@ function LoginContent() {
 
   useEffect(() => {
     if (!authLoading && user) {
-      router.replace("/perfil");
+      router.replace("/inicio");
     }
   }, [authLoading, router, user]);
 
   useEffect(() => {
+    const requestedMode = searchParams.get("mode");
+    if (requestedMode === "login" || requestedMode === "register") {
+      setMode(requestedMode);
+    }
+
     const code = searchParams.get("code");
     const authErrorDescription = searchParams.get("error_description");
 
@@ -74,6 +79,21 @@ function LoginContent() {
 
         const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(safeCode);
         if (exchangeError) throw exchangeError;
+
+        const {
+          data: { user: callbackUser },
+        } = await supabase.auth.getUser();
+
+        if (callbackUser?.id && callbackUser.email) {
+          await createUserProfile({
+            id: callbackUser.id,
+            email: callbackUser.email,
+            teamName:
+              (callbackUser.user_metadata?.team_name as string) ||
+              (callbackUser.user_metadata?.full_name as string) ||
+              "Mi equipo",
+          });
+        }
       } catch (callbackError) {
         if (active) {
           setError(getReadableError(callbackError));
@@ -107,7 +127,7 @@ function LoginContent() {
           });
         }
 
-        router.replace("/perfil");
+        router.replace("/inicio");
         return;
       }
 
@@ -130,7 +150,7 @@ function LoginContent() {
           email: newUser.email,
           teamName: teamName.trim() || "Mi equipo",
         });
-        router.replace("/perfil");
+        router.replace("/inicio");
         return;
       }
 
@@ -145,16 +165,31 @@ function LoginContent() {
     }
   }
 
+  async function handleGoogleSignIn() {
+    setError(null);
+    setMessage(null);
+    setSubmitting(true);
+
+    try {
+      const redirectTo =
+        typeof window !== "undefined" ? `${window.location.origin}/login` : undefined;
+      await signInWithGoogle(redirectTo);
+    } catch (googleError) {
+      setError(getReadableError(googleError));
+      setSubmitting(false);
+    }
+  }
+
   if (authLoading) {
     return (
-      <PrimexiShell>
+      <PrimexiShell showNavigation={false}>
         <section className="pt-8 text-sm text-white/70">Cargando sesión...</section>
       </PrimexiShell>
     );
   }
 
   return (
-    <PrimexiShell>
+    <PrimexiShell showNavigation={false}>
       <section className="space-y-6 pt-3">
         <header className="rounded-3xl border border-[#00ff85]/20 bg-[#1b001c]/80 p-4">
           <p className="text-xs uppercase tracking-[0.3em] text-white/60">Acceso</p>
@@ -169,6 +204,21 @@ function LoginContent() {
         </header>
 
         <form onSubmit={handleSubmit} className="space-y-4 rounded-3xl border border-white/10 bg-[#140015] p-4">
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={submitting}
+            className="w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
+          >
+            Continuar con Google
+          </button>
+
+          <div className="flex items-center gap-3 text-xs text-white/40">
+            <span className="h-px flex-1 bg-white/10" />
+            o con correo
+            <span className="h-px flex-1 bg-white/10" />
+          </div>
+
           <label className="block text-xs text-white/60">
             Email
             <input

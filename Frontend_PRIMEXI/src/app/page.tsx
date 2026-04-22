@@ -1,10 +1,5 @@
-import { PrimexiShell } from "@/components/primexi/PrimexiShell";
-import { PrimexiHome } from "@/components/primexi/PrimexiHome";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return (
-    <PrimexiShell>
-      <PrimexiHome />
-    </PrimexiShell>
-  );
+  redirect("/login");
 }

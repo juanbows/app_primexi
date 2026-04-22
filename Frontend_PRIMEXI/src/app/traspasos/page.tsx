@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { RequireAuth } from "@/components/auth/RequireAuth";
 import { PrimexiShell } from "@/components/primexi/PrimexiShell";
 import TransfersPageClient from "@/features/transfers/TransfersPageClient";
 
@@ -10,7 +11,9 @@ export const metadata: Metadata = {
 export default function TraspasosPage() {
   return (
     <PrimexiShell>
-      <TransfersPageClient />
+      <RequireAuth>
+        <TransfersPageClient />
+      </RequireAuth>
     </PrimexiShell>
   );
 }

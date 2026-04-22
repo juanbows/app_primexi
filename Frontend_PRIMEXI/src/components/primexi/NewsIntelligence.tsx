@@ -1,12 +1,21 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import type { LucideIcon } from "lucide-react";
-import { Activity, Info, Newspaper, Sparkles, TrendingUp } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowUpDown,
+  Newspaper,
+  Sparkles,
+  TrendingUp,
+} from "lucide-react";
 import { motion } from "motion/react";
+import { getNewsInsights, type HomeInsight } from "@/services/homeService";
 
 type NewsItem = {
-  id: number;
-  type: "injury" | "form" | "prediction" | "confirmed";
+  id: string;
+  type: HomeInsight["type"];
   title: string;
   description: string;
   probability?: string;
@@ -16,49 +25,44 @@ type NewsItem = {
   borderColor: string;
 };
 
-const news: NewsItem[] = [
+type NewsIntelligenceProps = {
+  gameweek: number;
+};
+
+const insightStyleMap: Record<HomeInsight["type"], Omit<NewsItem, "id" | "type" | "title" | "description" | "probability">> =
   {
-    id: 1,
-    type: "prediction",
-    title: "De Bruyne - Alta Probabilidad de Jugar",
-    description: "IA predice 90% de probabilidad de titular",
-    probability: "90%",
-    icon: Activity,
-    color: "#04f5ff",
-    bgColor: "from-[#04f5ff]/20 to-[#04f5ff]/5",
-    borderColor: "border-[#04f5ff]/40",
-  },
-  {
-    id: 2,
-    type: "confirmed",
-    title: "Solanke Confirmado",
-    description: "+135 managers lo ficharon en las ultimas 24h",
-    icon: TrendingUp,
-    color: "#00ff85",
-    bgColor: "from-[#00ff85]/20 to-[#00ff85]/5",
-    borderColor: "border-[#00ff85]/40",
-  },
-  {
-    id: 3,
-    type: "injury",
-    title: "Alerta: Salah Duda",
-    description: "Posible rotacion segun analisis del equipo",
-    icon: Info,
-    color: "#e90052",
-    bgColor: "from-[#e90052]/20 to-[#e90052]/5",
-    borderColor: "border-[#e90052]/40",
-  },
-  {
-    id: 4,
-    type: "form",
-    title: "Palmer en Racha",
-    description: "4 goles en los ultimos 3 partidos",
-    icon: Sparkles,
-    color: "#04f5ff",
-    bgColor: "from-[#04f5ff]/20 to-[#04f5ff]/5",
-    borderColor: "border-[#04f5ff]/40",
-  },
-];
+    availability: {
+      icon: AlertTriangle,
+      color: "#e90052",
+      bgColor: "from-[#e90052]/20 to-[#e90052]/5",
+      borderColor: "border-[#e90052]/40",
+    },
+    form: {
+      icon: Sparkles,
+      color: "#04f5ff",
+      bgColor: "from-[#04f5ff]/20 to-[#04f5ff]/5",
+      borderColor: "border-[#04f5ff]/40",
+    },
+    market_in: {
+      icon: TrendingUp,
+      color: "#00ff85",
+      bgColor: "from-[#00ff85]/20 to-[#00ff85]/5",
+      borderColor: "border-[#00ff85]/40",
+    },
+    market_out: {
+      icon: ArrowUpDown,
+      color: "#f7b500",
+      bgColor: "from-[#f7b500]/20 to-[#f7b500]/5",
+      borderColor: "border-[#f7b500]/40",
+    },
+  };
+
+function mapInsightToCard(insight: HomeInsight): NewsItem {
+  return {
+    ...insight,
+    ...insightStyleMap[insight.type],
+  };
+}
 
 function NewsCard({ item, index }: { item: NewsItem; index: number }) {
   const Icon = item.icon;
@@ -130,7 +134,50 @@ function NewsCard({ item, index }: { item: NewsItem; index: number }) {
   );
 }
 
-export function NewsIntelligence() {
+export function NewsIntelligence({ gameweek }: NewsIntelligenceProps) {
+  const [news, setNews] = useState<NewsItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadInsights() {
+      setIsLoading(true);
+      setErrorMessage(null);
+
+      try {
+        const insights = await getNewsInsights(gameweek);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setNews(insights.map(mapInsightToCard));
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "No se pudieron cargar los insights de la jornada.",
+        );
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadInsights();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [gameweek]);
+
   return (
     <motion.section
       className="space-y-4"
@@ -140,18 +187,37 @@ export function NewsIntelligence() {
     >
       <div className="flex items-center gap-2">
         <Newspaper className="h-6 w-6 text-[#04f5ff]" />
-        <h2 className="text-xl font-bold text-white">Noticias Inteligentes</h2>
+        <h2 className="text-xl font-bold text-white">Radar De Jornada</h2>
       </div>
 
       <p className="text-sm text-white/60">
-        Actualizaciones en tiempo real impulsadas por IA
+        Disponibilidad, forma y movimientos reales del mercado para GW{gameweek}
       </p>
 
-      <div className="grid gap-3">
-        {news.map((item, index) => (
-          <NewsCard key={item.id} item={item} index={index} />
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="grid gap-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div
+              key={index}
+              className="h-28 rounded-2xl border-2 border-white/10 bg-white/5"
+            />
+          ))}
+        </div>
+      ) : errorMessage ? (
+        <p className="rounded-2xl border border-white/10 bg-[#38003c]/30 px-4 py-3 text-sm text-white/70">
+          {errorMessage}
+        </p>
+      ) : news.length > 0 ? (
+        <div className="grid gap-3">
+          {news.map((item, index) => (
+            <NewsCard key={item.id} item={item} index={index} />
+          ))}
+        </div>
+      ) : (
+        <p className="rounded-2xl border border-white/10 bg-[#38003c]/30 px-4 py-3 text-sm text-white/70">
+          Aun no hay suficientes datos para construir el radar de esta jornada.
+        </p>
+      )}
     </motion.section>
   );
 }

@@ -1,170 +1,28 @@
 "use client";
 
 import Image from "next/image";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ChevronLeft, ChevronRight, Trophy, TrendingUp } from "lucide-react";
 import { motion } from "motion/react";
 import Slider from "react-slick";
 import type { Settings } from "react-slick";
+import { getTopPlayers, type PlayerRecord } from "@/services/homeService";
 
 type Player = {
-  id: number;
+  id: string;
   name: string;
   team: string;
   points: number;
   achievement: string;
   position: number;
-  image: string;
+  image: string | null;
+  positionCode: string;
 };
 
 type TopPlayersProps = {
   gameweek: number;
 };
-
-const allPlayers: Player[][] = [
-  [
-    {
-      id: 1,
-      name: "Foden",
-      team: "MCI",
-      points: 18,
-      achievement: "Hat trick y MVP",
-      position: 1,
-      image: "https://images.unsplash.com/photo-1765046876564-aa4034b6c71a?w=400",
-    },
-    {
-      id: 2,
-      name: "Isak",
-      team: "NEW",
-      points: 15,
-      achievement: "Doble Gol",
-      position: 2,
-      image: "https://images.unsplash.com/photo-1701363539457-875b9bc9bbc1?w=400",
-    },
-    {
-      id: 3,
-      name: "Palmer",
-      team: "CHE",
-      points: 14,
-      achievement: "Gol y Asistencia",
-      position: 3,
-      image: "https://images.unsplash.com/photo-1632300873131-1dd749c83f97?w=400",
-    },
-    {
-      id: 4,
-      name: "Salah",
-      team: "LIV",
-      points: 13,
-      achievement: "Gol y Assist",
-      position: 4,
-      image: "https://images.unsplash.com/photo-1765046876564-aa4034b6c71a?w=400",
-    },
-    {
-      id: 5,
-      name: "Saka",
-      team: "ARS",
-      points: 12,
-      achievement: "Gol de MVP",
-      position: 5,
-      image: "https://images.unsplash.com/photo-1701363539457-875b9bc9bbc1?w=400",
-    },
-  ],
-  [
-    {
-      id: 1,
-      name: "Haaland",
-      team: "MCI",
-      points: 20,
-      achievement: "Triplete Historico",
-      position: 1,
-      image: "https://images.unsplash.com/photo-1632300873131-1dd749c83f97?w=400",
-    },
-    {
-      id: 2,
-      name: "Salah",
-      team: "LIV",
-      points: 16,
-      achievement: "Doblete",
-      position: 2,
-      image: "https://images.unsplash.com/photo-1765046876564-aa4034b6c71a?w=400",
-    },
-    {
-      id: 3,
-      name: "Son",
-      team: "TOT",
-      points: 14,
-      achievement: "Gol y 2 Assists",
-      position: 3,
-      image: "https://images.unsplash.com/photo-1701363539457-875b9bc9bbc1?w=400",
-    },
-    {
-      id: 4,
-      name: "Watkins",
-      team: "AVL",
-      points: 13,
-      achievement: "Doblete Crucial",
-      position: 4,
-      image: "https://images.unsplash.com/photo-1632300873131-1dd749c83f97?w=400",
-    },
-    {
-      id: 5,
-      name: "Foden",
-      team: "MCI",
-      points: 11,
-      achievement: "Asistencias",
-      position: 5,
-      image: "https://images.unsplash.com/photo-1765046876564-aa4034b6c71a?w=400",
-    },
-  ],
-  [
-    {
-      id: 1,
-      name: "Palmer",
-      team: "CHE",
-      points: 19,
-      achievement: "Hat trick perfecto",
-      position: 1,
-      image: "https://images.unsplash.com/photo-1701363539457-875b9bc9bbc1?w=400",
-    },
-    {
-      id: 2,
-      name: "Isak",
-      team: "NEW",
-      points: 14,
-      achievement: "Doblete",
-      position: 2,
-      image: "https://images.unsplash.com/photo-1632300873131-1dd749c83f97?w=400",
-    },
-    {
-      id: 3,
-      name: "Bowen",
-      team: "WHU",
-      points: 13,
-      achievement: "Gol y Assist",
-      position: 3,
-      image: "https://images.unsplash.com/photo-1765046876564-aa4034b6c71a?w=400",
-    },
-    {
-      id: 4,
-      name: "De Bruyne",
-      team: "MCI",
-      points: 12,
-      achievement: "3 Asistencias",
-      position: 4,
-      image: "https://images.unsplash.com/photo-1701363539457-875b9bc9bbc1?w=400",
-    },
-    {
-      id: 5,
-      name: "Rashford",
-      team: "MUN",
-      points: 11,
-      achievement: "Gol clave",
-      position: 5,
-      image: "https://images.unsplash.com/photo-1632300873131-1dd749c83f97?w=400",
-    },
-  ],
-];
 
 const positionColors = {
   1: {
@@ -199,14 +57,69 @@ const positionColors = {
   },
 } as const;
 
-function getPlayersForGameweek(gameweek: number) {
-  const index = (gameweek - 23) % allPlayers.length;
-  return index >= 0 ? allPlayers[index] : allPlayers[0];
+const positionImages: Record<string, string> = {
+  FWD: "https://images.unsplash.com/photo-1632300873131-1dd749c83f97?w=400",
+  MID: "https://images.unsplash.com/photo-1701363539457-875b9bc9bbc1?w=400",
+  DEF: "https://images.unsplash.com/photo-1765046876564-aa4034b6c71a?w=400",
+  GK: "https://images.unsplash.com/photo-1765046876564-aa4034b6c71a?w=400",
+};
+
+function buildGameweekAchievement(player: PlayerRecord) {
+  const metrics = [`Forma ${Number(player.form ?? 0).toFixed(1)}`];
+
+  if (player.selected_by_percent !== null) {
+    metrics.push(`${Number(player.selected_by_percent).toFixed(1)}% sel`);
+  }
+
+  metrics.push(`£${Number(player.price).toFixed(1)}m`);
+
+  if (
+    player.chance_of_playing_next_round !== null &&
+    player.chance_of_playing_next_round < 100
+  ) {
+    metrics.push(`${player.chance_of_playing_next_round}% juega`);
+  }
+
+  return metrics.join(" | ");
+}
+
+function getPlayerInitials(name: string) {
+  return name
+    .split(/[.\s]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((segment) => segment[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+function resolveUsableImage(photo: string | null, position: string) {
+  if (!photo || photo.includes("resources.premierleague.com")) {
+    return null;
+  }
+
+  return photo ?? positionImages[position] ?? null;
+}
+
+function mapPlayerToCard(player: PlayerRecord, rank: number): Player {
+  return {
+    id: player.id,
+    name: player.name,
+    team: player.team,
+    points: player.event_points ?? 0,
+    achievement: buildGameweekAchievement(player),
+    position: rank,
+    image: resolveUsableImage(player.photo, player.position),
+    positionCode: player.position,
+  };
 }
 
 function PlayerCard({ player }: { player: Player }) {
   const colors = positionColors[player.position as keyof typeof positionColors];
   const isFirst = player.position === 1;
+  const initials = getPlayerInitials(player.name);
+  const fallbackImage = positionImages[player.positionCode] ?? positionImages.FWD;
+  const [hasImageError, setHasImageError] = useState(false);
+  const imageSrc = hasImageError ? null : player.image;
 
   return (
     <motion.div
@@ -228,13 +141,41 @@ function PlayerCard({ player }: { player: Player }) {
       >
         <div className="relative h-64 overflow-hidden">
           <div className="absolute inset-0 z-10 bg-gradient-to-b from-transparent via-transparent to-[#38003c]" />
-          <Image
-            src={player.image}
-            alt={player.name}
-            fill
-            className="object-cover"
-            sizes="(max-width: 768px) 100vw, 420px"
-          />
+          {imageSrc ? (
+            <Image
+              src={imageSrc}
+              alt={player.name}
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, 420px"
+              onError={() => {
+                setHasImageError(true);
+              }}
+            />
+          ) : (
+            <>
+              <Image
+                src={fallbackImage}
+                alt=""
+                fill
+                aria-hidden="true"
+                className="object-cover opacity-30 blur-[1px]"
+                sizes="(max-width: 768px) 100vw, 420px"
+              />
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(4,245,255,0.35),_transparent_55%),linear-gradient(160deg,_rgba(56,0,60,0.45),_rgba(8,12,24,0.9))]" />
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 px-6 text-center">
+                <div className="flex h-24 w-24 items-center justify-center rounded-full border border-white/15 bg-white/10 text-3xl font-bold text-white shadow-lg backdrop-blur-sm">
+                  {initials}
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold tracking-[0.4em] text-[#04f5ff]/80">
+                    {player.positionCode}
+                  </p>
+                  <p className="text-sm text-white/70">{player.team}</p>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="space-y-4 p-6">
@@ -259,12 +200,56 @@ function PlayerCard({ player }: { player: Player }) {
 }
 
 export function TopPlayers({ gameweek }: TopPlayersProps) {
-  const players = getPlayersForGameweek(gameweek);
   const sliderRef = useRef<Slider | null>(null);
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadTopPlayers() {
+      setIsLoading(true);
+      setErrorMessage(null);
+      setPlayers([]);
+
+      try {
+        const topPlayers = await getTopPlayers(gameweek);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setPlayers(
+          topPlayers.map((player, index) => mapPlayerToCard(player, index + 1)),
+        );
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "No se pudieron cargar los jugadores.",
+        );
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadTopPlayers();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [gameweek]);
 
   const settings: Settings = {
     dots: true,
-    infinite: true,
+    infinite: players.length > 1,
     speed: 500,
     slidesToShow: 1,
     slidesToScroll: 1,
@@ -290,37 +275,52 @@ export function TopPlayers({ gameweek }: TopPlayersProps) {
         <h2 className="text-xl font-bold text-white">Top 5 de la Jornada</h2>
       </div>
 
-      <div className="relative">
-        <motion.button
-          type="button"
-          aria-label="Ver jugador anterior"
-          onClick={() => sliderRef.current?.slickPrev()}
-          className="absolute left-0 top-1/2 z-20 rounded-full border-2 border-[#00ff85] bg-[#00ff85]/90 p-3 text-[#38003c] shadow-lg shadow-[#00ff85]/50"
-          whileHover={{ scale: 1.15, backgroundColor: "rgba(0, 255, 133, 1)" }}
-          whileTap={{ scale: 0.9 }}
-        >
-          <ChevronLeft className="h-6 w-6" />
-        </motion.button>
-
-        <div className="relative -mx-4">
-          <Slider ref={sliderRef} {...settings}>
-            {players.map((player) => (
-              <PlayerCard key={player.id} player={player} />
-            ))}
-          </Slider>
+      {isLoading ? (
+        <div className="h-[28rem] rounded-3xl border-2 border-white/10 bg-[#38003c]/50" />
+      ) : errorMessage ? (
+        <div className="rounded-3xl border-2 border-[#e90052]/30 bg-[#38003c]/70 p-6 text-center text-sm text-white/80">
+          {errorMessage}
         </div>
+      ) : players.length === 0 ? (
+        <div className="rounded-3xl border-2 border-white/10 bg-[#38003c]/50 p-6 text-center text-sm text-white/80">
+          No hay jugadores disponibles para la jornada.
+        </div>
+      ) : (
+        <div className="relative">
+          <motion.button
+            type="button"
+            aria-label="Ver jugador anterior"
+            onClick={() => sliderRef.current?.slickPrev()}
+            className="absolute left-0 top-1/2 z-20 rounded-full border-2 border-[#00ff85] bg-[#00ff85]/90 p-3 text-[#38003c] shadow-lg shadow-[#00ff85]/50"
+            whileHover={{ scale: 1.15, backgroundColor: "rgba(0, 255, 133, 1)" }}
+            whileTap={{ scale: 0.9 }}
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </motion.button>
 
-        <motion.button
-          type="button"
-          aria-label="Ver siguiente jugador"
-          onClick={() => sliderRef.current?.slickNext()}
-          className="absolute right-0 top-1/2 z-20 rounded-full border-2 border-[#00ff85] bg-[#00ff85]/90 p-3 text-[#38003c] shadow-lg shadow-[#00ff85]/50"
-          whileHover={{ scale: 1.15, backgroundColor: "rgba(0, 255, 133, 1)" }}
-          whileTap={{ scale: 0.9 }}
-        >
-          <ChevronRight className="h-6 w-6" />
-        </motion.button>
-      </div>
+          <div className="relative -mx-4">
+            <Slider ref={sliderRef} {...settings}>
+              {players.map((player) => (
+                <PlayerCard
+                  key={`${player.id}:${player.image ?? "fallback"}`}
+                  player={player}
+                />
+              ))}
+            </Slider>
+          </div>
+
+          <motion.button
+            type="button"
+            aria-label="Ver siguiente jugador"
+            onClick={() => sliderRef.current?.slickNext()}
+            className="absolute right-0 top-1/2 z-20 rounded-full border-2 border-[#00ff85] bg-[#00ff85]/90 p-3 text-[#38003c] shadow-lg shadow-[#00ff85]/50"
+            whileHover={{ scale: 1.15, backgroundColor: "rgba(0, 255, 133, 1)" }}
+            whileTap={{ scale: 0.9 }}
+          >
+            <ChevronRight className="h-6 w-6" />
+          </motion.button>
+        </div>
+      )}
     </motion.section>
   );
 }

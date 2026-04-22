@@ -127,22 +127,23 @@ export function TeamFormation({
           </div>
         ))}
 
+      </motion.div>
+
+      <motion.div
+        className="mx-auto -mt-1 flex w-fit items-center gap-2 rounded-full border border-[#00ff85]/20 bg-[#0a3d1a]/80 px-3 py-1.5 backdrop-blur-sm"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 1.2 }}
+      >
         <motion.div
-          className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-[#00ff85]/20 bg-[#0a3d1a]/80 px-3 py-1.5 backdrop-blur-sm"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.2 }}
-        >
-          <motion.div
-            className="h-2 w-2 rounded-full bg-[#00ff85]"
-            animate={{ scale: [1, 1.4, 1], opacity: [1, 0.5, 1] }}
-            transition={{ duration: 1.5, repeat: Infinity }}
-          />
-          <span className="text-[10px] font-medium text-white/70">Pulso del Equipo</span>
-          <span className="text-[10px] font-bold text-[#00ff85]">
-            {squad.filter((player) => player.status === "fit").length}/{squad.length} en forma
-          </span>
-        </motion.div>
+          className="h-2 w-2 rounded-full bg-[#00ff85]"
+          animate={{ scale: [1, 1.4, 1], opacity: [1, 0.5, 1] }}
+          transition={{ duration: 1.5, repeat: Infinity }}
+        />
+        <span className="text-[10px] font-medium text-white/70">Pulso del Equipo</span>
+        <span className="text-[10px] font-bold text-[#00ff85]">
+          {squad.filter((player) => player.status === "fit").length}/{squad.length} en forma
+        </span>
       </motion.div>
 
       <PlayerDetailSheet

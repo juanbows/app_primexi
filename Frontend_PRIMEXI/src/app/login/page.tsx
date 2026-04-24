@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import type { User } from "@supabase/supabase-js";
 
 import { PrimexiShell } from "@/components/primexi/PrimexiShell";
 import { createUserProfile, signIn, signInWithGoogle, signUp } from "@/lib/auth";
@@ -34,6 +35,26 @@ function getReadableError(error: unknown) {
   return "No se pudo procesar la solicitud.";
 }
 
+function getTeamNameFromUser(user: User) {
+  return (
+    (user.user_metadata?.team_name as string) ||
+    (user.user_metadata?.full_name as string) ||
+    "Mi equipo"
+  );
+}
+
+async function ensureProfile(authUser: User | null) {
+  if (!authUser?.id || !authUser.email) {
+    return;
+  }
+
+  await createUserProfile({
+    id: authUser.id,
+    email: authUser.email,
+    teamName: getTeamNameFromUser(authUser),
+  });
+}
+
 // 🔹 CONTENIDO REAL
 function LoginContent() {
   const router = useRouter();
@@ -49,9 +70,25 @@ function LoginContent() {
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && user) {
-      router.replace("/inicio");
+    let active = true;
+
+    async function syncAuthenticatedUser() {
+      if (authLoading || !user) {
+        return;
+      }
+
+      await ensureProfile(user);
+
+      if (active) {
+        router.replace("/inicio");
+      }
     }
+
+    syncAuthenticatedUser();
+
+    return () => {
+      active = false;
+    };
   }, [authLoading, router, user]);
 
   useEffect(() => {
@@ -72,7 +109,7 @@ function LoginContent() {
 
     let active = true;
 
-    async function handleEmailCallback() {
+    async function handleAuthCallback() {
       try {
         const safeCode = code;
         if (!safeCode) return;
@@ -84,16 +121,7 @@ function LoginContent() {
           data: { user: callbackUser },
         } = await supabase.auth.getUser();
 
-        if (callbackUser?.id && callbackUser.email) {
-          await createUserProfile({
-            id: callbackUser.id,
-            email: callbackUser.email,
-            teamName:
-              (callbackUser.user_metadata?.team_name as string) ||
-              (callbackUser.user_metadata?.full_name as string) ||
-              "Mi equipo",
-          });
-        }
+        await ensureProfile(callbackUser);
       } catch (callbackError) {
         if (active) {
           setError(getReadableError(callbackError));
@@ -101,7 +129,7 @@ function LoginContent() {
       }
     }
 
-    handleEmailCallback();
+    handleAuthCallback();
 
     return () => {
       active = false;
@@ -119,13 +147,7 @@ function LoginContent() {
         const signInData = await signIn(email, password);
         const currentUser = signInData.user;
 
-        if (currentUser?.id && currentUser.email) {
-          await createUserProfile({
-            id: currentUser.id,
-            email: currentUser.email,
-            teamName: (currentUser.user_metadata?.team_name as string) || "Mi equipo",
-          });
-        }
+        await ensureProfile(currentUser);
 
         router.replace("/inicio");
         return;
@@ -145,13 +167,17 @@ function LoginContent() {
       const hasSession = Boolean(data.session);
 
       // Always try to create the profile (fire-and-forget fallback; the DB trigger is primary)
-      if (newUser?.id && newUser.email) {
-        await createUserProfile({
-          id: newUser.id,
-          email: newUser.email,
-          teamName: teamName.trim() || "Mi equipo",
-        });
-      }
+      await ensureProfile(
+        newUser
+          ? {
+              ...newUser,
+              user_metadata: {
+                ...newUser.user_metadata,
+                team_name: teamName.trim() || "Mi equipo",
+              },
+            }
+          : null,
+      );
 
       if (hasSession) {
         router.replace("/inicio");

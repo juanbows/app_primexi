@@ -323,7 +323,7 @@ async function getHistoricalPlayerRecords(gameweek: number): Promise<PlayerRecor
     .filter((player): player is PlayerRecord => player !== null);
 }
 
-async function getPlayerRecordsForGameweek(gameweek: number): Promise<PlayerRecord[]> {
+async function getSnapshotPlayerRecords(gameweek: number): Promise<PlayerRecord[]> {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from("players")
@@ -337,7 +337,39 @@ async function getPlayerRecordsForGameweek(gameweek: number): Promise<PlayerReco
     throw error;
   }
 
-  const snapshotPlayers = (data ?? []) as PlayerRecord[];
+  return (data ?? []) as PlayerRecord[];
+}
+
+async function getLatestSnapshotGameweek(): Promise<number | null> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("players")
+    .select("gameweek")
+    .order("gameweek", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  const latestGameweekRow = data as { gameweek?: number | null } | null;
+  const latestGameweek = latestGameweekRow?.gameweek ?? null;
+
+  return Number.isInteger(latestGameweek) ? latestGameweek : null;
+}
+
+async function getPlayerRecordsForGameweek(gameweek: number): Promise<PlayerRecord[]> {
+  const latestSnapshotGameweek = await getLatestSnapshotGameweek().catch(() => null);
+
+  if (latestSnapshotGameweek !== null && gameweek < latestSnapshotGameweek) {
+    const historicalPlayers = await getHistoricalPlayerRecords(gameweek);
+    if (historicalPlayers.length > 0) {
+      return historicalPlayers;
+    }
+  }
+
+  const snapshotPlayers = await getSnapshotPlayerRecords(gameweek);
   if (snapshotPlayers.length > 0) {
     return snapshotPlayers;
   }
@@ -416,7 +448,7 @@ async function getHomeContextFromSupabase() {
   return buildHomeContext((data ?? []) as GameweekRow[]);
 }
 
-async function getLatestSyncedGameweek(): Promise<number | null> {
+async function getLatestHistoricalGameweek(): Promise<number | null> {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from("player_gameweek_stats")
@@ -436,7 +468,14 @@ async function getLatestSyncedGameweek(): Promise<number | null> {
 }
 
 export async function getHomeContext(): Promise<HomeContext> {
-  const latestSyncedGameweek = await getLatestSyncedGameweek().catch(() => null);
+  const [latestHistoricalGameweek, latestSnapshotGameweek] = await Promise.all([
+    getLatestHistoricalGameweek().catch(() => null),
+    getLatestSnapshotGameweek().catch(() => null),
+  ]);
+  const latestSyncedGameweek = Math.max(
+    latestHistoricalGameweek ?? 0,
+    latestSnapshotGameweek ?? 0,
+  ) || null;
 
   try {
     const response = await fetch(FPL_BOOTSTRAP_URL, {

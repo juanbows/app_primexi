@@ -61,6 +61,40 @@ type PlayerInsightRow = {
   transfers_out: number | null;
 };
 
+type HistoricalPlayerStatRow = {
+  player_catalog_id: string | null;
+  fpl_id: number;
+  gameweek: number;
+  total_points: number | null;
+  minutes: number | null;
+  transfers_in: number | null;
+  transfers_out: number | null;
+};
+
+type PlayerCatalogRow = {
+  id: string;
+  fpl_id: number;
+  web_name: string | null;
+  full_name: string | null;
+  fpl_team_id: number | null;
+  fpl_position_id: number | null;
+  price: number | string | null;
+  photo: string | null;
+  form: number | string | null;
+  status: string | null;
+  news: string | null;
+  selected_by_percent: number | string | null;
+  chance_of_playing_next_round: number | null;
+  total_points: number | null;
+  transfers_in: number | null;
+  transfers_out: number | null;
+};
+
+type TeamLookupRow = {
+  fpl_id: number;
+  name: string;
+};
+
 export type HomeCountdown = {
   gameweek: number;
   deadlineTime: string;
@@ -99,21 +133,14 @@ const playerSnapshotColumns = `
   chance_of_playing_next_round
 `;
 
-const playerInsightColumns = `
-  id,
-  name,
-  team,
-  form,
-  total_points,
-  status,
-  news,
-  selected_by_percent,
-  chance_of_playing_next_round,
-  transfers_in,
-  transfers_out
-`;
-
 const FPL_BOOTSTRAP_URL = "https://fantasy.premierleague.com/api/bootstrap-static/";
+
+const positionCodeByFplPositionId: Record<number, PlayerRecord["position"]> = {
+  1: "GK",
+  2: "DEF",
+  3: "MID",
+  4: "FWD",
+};
 
 function toFiniteNumber(value: number | string | null | undefined) {
   if (value === null || value === undefined || value === "") {
@@ -177,13 +204,6 @@ function buildHomeContext(events: GameweekEvent[]): HomeContext {
   };
 }
 
-function formatCompactNumber(value: number | null) {
-  return new Intl.NumberFormat("es-CO", {
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value ?? 0);
-}
-
 function formatPercentage(value: number | null) {
   if (value === null) {
     return null;
@@ -204,6 +224,125 @@ function trimCopy(value: string | null | undefined, maxLength = 110) {
   }
 
   return `${normalizedValue.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
+function resolvePositionCode(fplPositionId: number | null | undefined) {
+  return positionCodeByFplPositionId[fplPositionId ?? 0] ?? "MID";
+}
+
+async function getHistoricalPlayerRecords(gameweek: number): Promise<PlayerRecord[]> {
+  const supabase = getSupabaseClient();
+  const { data: statsData, error: statsError } = await supabase
+    .from("player_gameweek_stats")
+    .select("player_catalog_id,fpl_id,gameweek,total_points,minutes,transfers_in,transfers_out")
+    .eq("gameweek", gameweek)
+    .order("total_points", { ascending: false })
+    .limit(20);
+
+  if (statsError) {
+    throw statsError;
+  }
+
+  const historicalStats = (statsData ?? []) as HistoricalPlayerStatRow[];
+
+  if (historicalStats.length === 0) {
+    return [];
+  }
+
+  const playerCatalogIds = historicalStats
+    .map((row) => row.player_catalog_id)
+    .filter((value): value is string => Boolean(value));
+
+  const { data: catalogData, error: catalogError } =
+    playerCatalogIds.length > 0
+      ? await supabase
+          .from("player_catalog")
+          .select(
+            "id,fpl_id,web_name,full_name,fpl_team_id,fpl_position_id,price,photo,form,status,news,selected_by_percent,chance_of_playing_next_round,total_points,transfers_in,transfers_out",
+          )
+          .in("id", playerCatalogIds)
+      : { data: [], error: null };
+
+  if (catalogError) {
+    throw catalogError;
+  }
+
+  const playerCatalog = (catalogData ?? []) as PlayerCatalogRow[];
+  const teamIds = Array.from(
+    new Set(
+      playerCatalog
+        .map((row) => row.fpl_team_id)
+        .filter((value): value is number => Number.isInteger(value)),
+    ),
+  );
+
+  const { data: teamData, error: teamError } =
+    teamIds.length > 0
+      ? await supabase.from("teams").select("fpl_id,name").in("fpl_id", teamIds)
+      : { data: [], error: null };
+
+  if (teamError) {
+    throw teamError;
+  }
+
+  const catalogById = new Map(playerCatalog.map((row) => [row.id, row]));
+  const teamNameByFplId = new Map(
+    ((teamData ?? []) as TeamLookupRow[]).map((row) => [row.fpl_id, row.name]),
+  );
+
+  return historicalStats
+    .map((row) => {
+      const catalog =
+        (row.player_catalog_id ? catalogById.get(row.player_catalog_id) : null) ??
+        playerCatalog.find((entry) => entry.fpl_id === row.fpl_id) ??
+        null;
+
+      if (!catalog) {
+        return null;
+      }
+
+      return {
+        id: catalog.id,
+        fpl_id: catalog.fpl_id,
+        name: catalog.web_name ?? catalog.full_name ?? `Player ${catalog.fpl_id}`,
+        full_name: catalog.full_name ?? catalog.web_name ?? `Player ${catalog.fpl_id}`,
+        position: resolvePositionCode(catalog.fpl_position_id),
+        team: teamNameByFplId.get(catalog.fpl_team_id ?? -1) ?? "Sin equipo",
+        price: catalog.price ?? 0,
+        photo: catalog.photo,
+        gameweek: row.gameweek,
+        total_points: catalog.total_points ?? row.total_points ?? 0,
+        event_points: row.total_points ?? 0,
+        minutes: row.minutes ?? 0,
+        form: toFiniteNumber(catalog.form),
+        selected_by_percent: toFiniteNumber(catalog.selected_by_percent),
+        status: catalog.status,
+        chance_of_playing_next_round: catalog.chance_of_playing_next_round,
+      } satisfies PlayerRecord;
+    })
+    .filter((player): player is PlayerRecord => player !== null);
+}
+
+async function getPlayerRecordsForGameweek(gameweek: number): Promise<PlayerRecord[]> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("players")
+    .select(playerSnapshotColumns)
+    .eq("gameweek", gameweek)
+    .order("event_points", { ascending: false })
+    .order("total_points", { ascending: false })
+    .limit(20);
+
+  if (error) {
+    throw error;
+  }
+
+  const snapshotPlayers = (data ?? []) as PlayerRecord[];
+  if (snapshotPlayers.length > 0) {
+    return snapshotPlayers;
+  }
+
+  return getHistoricalPlayerRecords(gameweek);
 }
 
 function buildAvailabilityInsight(players: PlayerInsightRow[]) {
@@ -253,69 +392,14 @@ function buildFormInsight(player: PlayerInsightRow | null) {
   };
 }
 
-function buildTransferInInsight(player: PlayerInsightRow | null) {
-  if (!player || !player.transfers_in) {
-    return null;
-  }
-
-  const selectedByPercent = formatPercentage(player.selected_by_percent);
-
-  return {
-    id: `market-in-${player.id}`,
-    type: "market_in" as const,
-    title: `${player.name} lidera los fichajes`,
-    description: `${formatCompactNumber(player.transfers_in)} managers lo metieron y ya va en ${selectedByPercent ?? "0.0%"} de selección.`,
-  };
-}
-
-function buildTransferOutInsight(player: PlayerInsightRow | null) {
-  if (!player || !player.transfers_out) {
-    return null;
-  }
-
-  const selectedByPercent = formatPercentage(player.selected_by_percent);
-
-  return {
-    id: `market-out-${player.id}`,
-    type: "market_out" as const,
-    title: `${player.name} sale del radar`,
-    description: `${formatCompactNumber(player.transfers_out)} salidas en el mercado y ${selectedByPercent ?? "0.0%"} de selección restante.`,
-  };
-}
-
 export async function getTopPlayers(gameweek: number) {
-  const supabase = getSupabaseClient();
-  const { data, error } = await supabase
-    .from("players")
-    .select(playerSnapshotColumns)
-    .eq("gameweek", gameweek)
-    .order("event_points", { ascending: false })
-    .order("total_points", { ascending: false })
-    .limit(5);
-
-  if (error) {
-    throw error;
-  }
-
-  return (data ?? []) as PlayerRecord[];
+  const players = await getPlayerRecordsForGameweek(gameweek);
+  return players.slice(0, 5);
 }
 
 export async function getRevelationPlayer(gameweek: number) {
-  const supabase = getSupabaseClient();
-  const { data, error } = await supabase
-    .from("players")
-    .select(playerSnapshotColumns)
-    .eq("gameweek", gameweek)
-    .order("event_points", { ascending: false })
-    .order("total_points", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  return (data as PlayerRecord | null) ?? null;
+  const players = await getPlayerRecordsForGameweek(gameweek);
+  return players[0] ?? null;
 }
 
 async function getHomeContextFromSupabase() {
@@ -335,7 +419,7 @@ async function getHomeContextFromSupabase() {
 async function getLatestSyncedGameweek(): Promise<number | null> {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
-    .from("players")
+    .from("player_gameweek_stats")
     .select("gameweek")
     .order("gameweek", { ascending: false })
     .limit(1)
@@ -386,69 +470,35 @@ export async function getCurrentGameweek() {
 }
 
 export async function getNewsInsights(gameweek: number): Promise<HomeInsight[]> {
-  const supabase = getSupabaseClient();
-  const commonQuery = supabase
-    .from("players")
-    .select(playerInsightColumns)
-    .eq("gameweek", gameweek);
+  const players = await getPlayerRecordsForGameweek(gameweek);
+  const insightRows: PlayerInsightRow[] = players.map((player) => ({
+    id: player.id,
+    name: player.name,
+    team: player.team,
+    form: player.form,
+    total_points: player.total_points,
+    status: player.status,
+    news: null,
+    selected_by_percent: player.selected_by_percent,
+    chance_of_playing_next_round: player.chance_of_playing_next_round,
+    transfers_in: null,
+    transfers_out: null,
+  }));
 
-  const [
-    availabilityCandidatesResult,
-    formResult,
-    transferInResult,
-    transferOutResult,
-  ] = await Promise.all([
-    commonQuery.order("selected_by_percent", { ascending: false }).limit(20),
-    supabase
-      .from("players")
-      .select(playerInsightColumns)
-      .eq("gameweek", gameweek)
-      .order("form", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("players")
-      .select(playerInsightColumns)
-      .eq("gameweek", gameweek)
-      .order("transfers_in", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("players")
-      .select(playerInsightColumns)
-      .eq("gameweek", gameweek)
-      .order("transfers_out", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ]);
-
-  if (availabilityCandidatesResult.error) {
-    throw availabilityCandidatesResult.error;
-  }
-
-  if (formResult.error) {
-    throw formResult.error;
-  }
-
-  if (transferInResult.error) {
-    throw transferInResult.error;
-  }
-
-  if (transferOutResult.error) {
-    throw transferOutResult.error;
-  }
+  const bySelection = [...insightRows].sort(
+    (left, right) =>
+      (toFiniteNumber(right.selected_by_percent) ?? 0) -
+      (toFiniteNumber(left.selected_by_percent) ?? 0),
+  );
+  const byForm = [...insightRows].sort(
+    (left, right) => (right.form ?? 0) - (left.form ?? 0),
+  );
 
   const insights: Array<HomeInsight | null> = [
-    buildAvailabilityInsight(
-      (availabilityCandidatesResult.data ?? []) as PlayerInsightRow[],
-    ),
-    buildFormInsight((formResult.data ?? null) as PlayerInsightRow | null),
-    buildTransferInInsight(
-      (transferInResult.data ?? null) as PlayerInsightRow | null,
-    ),
-    buildTransferOutInsight(
-      (transferOutResult.data ?? null) as PlayerInsightRow | null,
-    ),
+    buildAvailabilityInsight(bySelection.slice(0, 20)),
+    buildFormInsight(byForm[0] ?? null),
+    null,
+    null,
   ];
 
   return insights.filter((insight): insight is HomeInsight => insight !== null);

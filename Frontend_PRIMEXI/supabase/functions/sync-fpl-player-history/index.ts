@@ -6,6 +6,7 @@ type TableRow = Record<string, unknown>;
 
 type SyncRequest = {
   limit?: number;
+  offset?: number;
 };
 
 type PlayerSeed = {
@@ -122,7 +123,7 @@ type PlayerFixtureStatsRow = {
   api_payload: FplHistoryEntry;
 };
 
-const DEFAULT_LIMIT = 30;
+const DEFAULT_LIMIT = 100;
 const FETCH_BATCH_SIZE = 8;
 const UPSERT_CHUNK_SIZE = 500;
 const jsonHeaders = {
@@ -157,9 +158,11 @@ async function parseRequest(req: Request): Promise<SyncRequest> {
   if (req.method === "GET") {
     const url = new URL(req.url);
     const limit = url.searchParams.get("limit");
+    const offset = url.searchParams.get("offset");
 
     return {
       limit: limit ? Number(limit) : undefined,
+      offset: offset ? Number(offset) : undefined,
     };
   }
 
@@ -277,38 +280,49 @@ function buildFixtureStatsRows(
 async function loadPlayerSeeds(
   supabaseAdmin: ReturnType<typeof createClient>,
   limit: number,
-): Promise<PlayerSeed[]> {
-  const { data: catalogPlayers, error: catalogError } = await supabaseAdmin
+  offset: number,
+): Promise<{ players: PlayerSeed[]; totalPlayers: number }> {
+  const { data: catalogPlayers, error: catalogError, count } = await supabaseAdmin
     .from("player_catalog")
-    .select("id, fpl_id, web_name, full_name")
-    .order("total_points", { ascending: false })
-    .limit(limit);
+    .select("id, fpl_id, web_name, full_name", { count: "exact" })
+    .order("fpl_id", { ascending: true })
+    .range(offset, offset + limit - 1);
 
   if (catalogError) {
     throw catalogError;
   }
 
   const catalogRows = (catalogPlayers ?? []) as PlayerCatalogSeedRow[];
+  const totalPlayers = count ?? catalogRows.length;
 
   if (catalogRows.length > 0) {
-    return catalogRows.map((player) => ({
-      id: String(player.id),
-      fpl_id: Number(player.fpl_id),
-      name: String(player.web_name ?? player.full_name ?? player.fpl_id),
-    }));
+    return {
+      totalPlayers,
+      players: catalogRows.map((player) => ({
+        id: String(player.id),
+        fpl_id: Number(player.fpl_id),
+        name: String(player.web_name ?? player.full_name ?? player.fpl_id),
+      })),
+    };
   }
 
-  const { data: players, error: playersError } = await supabaseAdmin
+  const legacyFetchSize = limit * 3;
+  const {
+    data: players,
+    error: playersError,
+    count: legacyCount,
+  } = await supabaseAdmin
     .from("players")
-    .select("player_catalog_id, fpl_id, name, full_name")
-    .order("total_points", { ascending: false })
-    .limit(limit * 3);
+    .select("player_catalog_id, fpl_id, name, full_name", { count: "exact" })
+    .order("fpl_id", { ascending: true })
+    .range(offset, offset + legacyFetchSize - 1);
 
   if (playersError) {
     throw playersError;
   }
 
   const legacyRows = (players ?? []) as LegacyPlayerSeedRow[];
+  const totalLegacyPlayers = legacyCount ?? legacyRows.length;
   const seeds = new Map<string, PlayerSeed>();
 
   for (const player of legacyRows) {
@@ -330,7 +344,10 @@ async function loadPlayerSeeds(
     }
   }
 
-  return Array.from(seeds.values());
+  return {
+    totalPlayers: totalLegacyPlayers,
+    players: Array.from(seeds.values()).slice(0, limit),
+  };
 }
 
 async function fetchFixtureStatsRows(players: PlayerSeed[]) {
@@ -364,9 +381,14 @@ Deno.serve(async (req) => {
   try {
     const request = await parseRequest(req);
     const limit = request.limit ?? DEFAULT_LIMIT;
+    const offset = request.offset ?? 0;
 
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
       throw new Error("limit must be an integer between 1 and 100.");
+    }
+
+    if (!Number.isInteger(offset) || offset < 0) {
+      throw new Error("offset must be a non-negative integer.");
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -377,10 +399,34 @@ Deno.serve(async (req) => {
     }
 
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
-    const playerSeeds = await loadPlayerSeeds(supabaseAdmin, limit);
+    const { players: playerSeeds, totalPlayers } = await loadPlayerSeeds(
+      supabaseAdmin,
+      limit,
+      offset,
+    );
 
     if (playerSeeds.length === 0) {
-      throw new Error("No players found to sync history from.");
+      return new Response(
+        JSON.stringify(
+          {
+            synced_players: 0,
+            synced_fixture_rows: 0,
+            refreshed_gameweeks: 0,
+            limit,
+            offset,
+            total_players: totalPlayers,
+            has_more: false,
+            next_offset: null,
+            sample_players: [],
+          },
+          null,
+          2,
+        ),
+        {
+          status: 200,
+          headers: jsonHeaders,
+        },
+      );
     }
 
     const rows = await fetchFixtureStatsRows(playerSeeds);
@@ -429,6 +475,13 @@ Deno.serve(async (req) => {
           synced_fixture_rows: rows.length,
           refreshed_gameweeks: affectedGameweeks.length,
           limit,
+          offset,
+          total_players: totalPlayers,
+          has_more: offset + playerSeeds.length < totalPlayers,
+          next_offset:
+            offset + playerSeeds.length < totalPlayers
+              ? offset + playerSeeds.length
+              : null,
           sample_players: playerSeeds.slice(0, 5).map((player) => ({
             id: player.id,
             fpl_id: player.fpl_id,

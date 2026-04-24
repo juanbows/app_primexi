@@ -111,10 +111,14 @@ async function main() {
     "SUPABASE_ANON_KEY",
     "NEXT_PUBLIC_SUPABASE_ANON_KEY",
   );
-  const historyLimit = Number(process.env.FPL_HISTORY_LIMIT ?? "100");
+  const historyBatchLimit = Number(process.env.FPL_HISTORY_LIMIT ?? "100");
 
-  if (!Number.isInteger(historyLimit) || historyLimit < 1) {
-    throw new Error("FPL_HISTORY_LIMIT must be a positive integer.");
+  if (
+    !Number.isInteger(historyBatchLimit) ||
+    historyBatchLimit < 1 ||
+    historyBatchLimit > 100
+  ) {
+    throw new Error("FPL_HISTORY_LIMIT must be an integer between 1 and 100.");
   }
 
   const targetGameweek = await resolveTargetGameweek();
@@ -142,25 +146,63 @@ async function main() {
     ),
   );
 
-  const historyResult = await invokeFunction({
-    baseUrl,
-    anonKey,
-    functionName: "sync-fpl-player-history",
-    payload: {
-      limit: historyLimit,
-    },
-  });
+  let historyOffset = 0;
+  let totalHistoryPlayers = null;
+  let totalHistoryRows = 0;
+  let totalSyncedPlayers = 0;
+
+  while (true) {
+    const historyResult = await invokeFunction({
+      baseUrl,
+      anonKey,
+      functionName: "sync-fpl-player-history",
+      payload: {
+        limit: historyBatchLimit,
+        offset: historyOffset,
+      },
+    });
+
+    totalHistoryPlayers = historyResult?.total_players ?? totalHistoryPlayers;
+    totalHistoryRows +=
+      historyResult?.synced_rows ??
+      historyResult?.synced_fixture_rows ??
+      0;
+    totalSyncedPlayers += historyResult?.synced_players ?? 0;
+
+    console.log(
+      JSON.stringify(
+        {
+          step: "sync-fpl-player-history",
+          limit: historyBatchLimit,
+          offset: historyOffset,
+          synced_players: historyResult?.synced_players ?? null,
+          synced_rows:
+            historyResult?.synced_rows ??
+            historyResult?.synced_fixture_rows ??
+            null,
+          total_players: historyResult?.total_players ?? null,
+          has_more: historyResult?.has_more ?? false,
+          next_offset: historyResult?.next_offset ?? null,
+        },
+        null,
+        2,
+      ),
+    );
+
+    if (!historyResult?.has_more || historyResult?.next_offset === null) {
+      break;
+    }
+
+    historyOffset = historyResult.next_offset;
+  }
 
   console.log(
     JSON.stringify(
       {
-        step: "sync-fpl-player-history",
-        limit: historyLimit,
-        synced_players: historyResult?.synced_players ?? null,
-        synced_rows:
-          historyResult?.synced_rows ??
-          historyResult?.synced_fixture_rows ??
-          null,
+        step: "sync-fpl-player-history:complete",
+        total_players: totalHistoryPlayers,
+        total_synced_players: totalSyncedPlayers,
+        total_synced_rows: totalHistoryRows,
       },
       null,
       2,

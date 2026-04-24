@@ -81,6 +81,8 @@ function getServerSupabaseClient() {
   return createClient(supabaseUrl, supabaseAnonKey);
 }
 
+type ServerSupabaseClient = ReturnType<typeof getServerSupabaseClient>;
+
 function toNumber(value: number | string | null | undefined) {
   if (value === null || value === undefined || value === "") {
     return null;
@@ -295,7 +297,7 @@ function pickInitialSquad(players: TeamPlayer[]) {
   return assignLeadership(squad);
 }
 
-async function getLatestGameweek(supabase: ReturnType<typeof createClient>) {
+async function getLatestGameweek(supabase: ServerSupabaseClient) {
   const { data, error } = await supabase
     .from("players")
     .select("gameweek")
@@ -317,7 +319,7 @@ async function getLatestGameweek(supabase: ReturnType<typeof createClient>) {
 }
 
 async function loadPlayers(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ServerSupabaseClient,
   latestGameweek: number,
   position: TeamPlayerPosition | null,
 ) {
@@ -359,7 +361,7 @@ async function loadPlayers(
   return (data ?? []) as PlayerSnapshotRow[];
 }
 
-async function loadTeams(supabase: ReturnType<typeof createClient>) {
+async function loadTeams(supabase: ServerSupabaseClient) {
   const { data, error } = await supabase
     .from("teams")
     .select("fpl_id, name, short_name");
@@ -372,7 +374,7 @@ async function loadTeams(supabase: ReturnType<typeof createClient>) {
 }
 
 async function loadHistory(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ServerSupabaseClient,
   fplIds: number[],
 ) {
   if (fplIds.length === 0) {
@@ -393,7 +395,7 @@ async function loadHistory(
 }
 
 async function loadUpcomingFixtures(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ServerSupabaseClient,
   latestGameweek: number,
   teamFplIds: number[],
 ) {

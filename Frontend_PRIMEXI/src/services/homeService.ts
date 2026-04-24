@@ -21,6 +21,7 @@ type PlayerSummary = {
   full_name: string;
   position: string;
   team: string;
+  fpl_team_id: number | null;
   price: number | string;
   photo: string | null;
 };
@@ -92,7 +93,14 @@ type PlayerCatalogRow = {
 
 type TeamLookupRow = {
   fpl_id: number;
-  name: string;
+  name: string | null;
+  short_name: string | null;
+  api_payload:
+    | {
+        name?: string | null;
+        short_name?: string | null;
+      }
+    | null;
 };
 
 export type HomeCountdown = {
@@ -121,6 +129,7 @@ const playerSnapshotColumns = `
   full_name,
   position,
   team,
+  fpl_team_id,
   price,
   photo,
   gameweek,
@@ -230,6 +239,40 @@ function resolvePositionCode(fplPositionId: number | null | undefined) {
   return positionCodeByFplPositionId[fplPositionId ?? 0] ?? "MID";
 }
 
+function isPlaceholderTeamValue(value: string | null | undefined) {
+  const normalizedValue = value?.trim();
+
+  if (!normalizedValue) {
+    return true;
+  }
+
+  return /^team\s+\d+$/i.test(normalizedValue) || normalizedValue.toUpperCase() === "TEA";
+}
+
+function resolveTeamDisplayName(
+  team: TeamLookupRow | null | undefined,
+  fallbackTeam?: string | null,
+) {
+  const apiPayloadName = team?.api_payload?.name?.trim();
+  if (apiPayloadName) {
+    return apiPayloadName;
+  }
+
+  if (!isPlaceholderTeamValue(team?.name)) {
+    return team?.name?.trim() ?? "Sin equipo";
+  }
+
+  if (!isPlaceholderTeamValue(team?.short_name)) {
+    return team?.short_name?.trim() ?? "Sin equipo";
+  }
+
+  if (!isPlaceholderTeamValue(fallbackTeam)) {
+    return fallbackTeam?.trim() ?? "Sin equipo";
+  }
+
+  return "Sin equipo";
+}
+
 async function getHistoricalPlayerRecords(gameweek: number): Promise<PlayerRecord[]> {
   const supabase = getSupabaseClient();
   const { data: statsData, error: statsError } = await supabase
@@ -278,7 +321,10 @@ async function getHistoricalPlayerRecords(gameweek: number): Promise<PlayerRecor
 
   const { data: teamData, error: teamError } =
     teamIds.length > 0
-      ? await supabase.from("teams").select("fpl_id,name").in("fpl_id", teamIds)
+      ? await supabase
+          .from("teams")
+          .select("fpl_id,name,short_name,api_payload")
+          .in("fpl_id", teamIds)
       : { data: [], error: null };
 
   if (teamError) {
@@ -286,12 +332,11 @@ async function getHistoricalPlayerRecords(gameweek: number): Promise<PlayerRecor
   }
 
   const catalogById = new Map(playerCatalog.map((row) => [row.id, row]));
-  const teamNameByFplId = new Map(
-    ((teamData ?? []) as TeamLookupRow[]).map((row) => [row.fpl_id, row.name]),
+  const teamByFplId = new Map(
+    ((teamData ?? []) as TeamLookupRow[]).map((row) => [row.fpl_id, row]),
   );
 
-  return historicalStats
-    .map((row) => {
+  const historicalPlayers: Array<PlayerRecord | null> = historicalStats.map((row) => {
       const catalog =
         (row.player_catalog_id ? catalogById.get(row.player_catalog_id) : null) ??
         playerCatalog.find((entry) => entry.fpl_id === row.fpl_id) ??
@@ -307,7 +352,8 @@ async function getHistoricalPlayerRecords(gameweek: number): Promise<PlayerRecor
         name: catalog.web_name ?? catalog.full_name ?? `Player ${catalog.fpl_id}`,
         full_name: catalog.full_name ?? catalog.web_name ?? `Player ${catalog.fpl_id}`,
         position: resolvePositionCode(catalog.fpl_position_id),
-        team: teamNameByFplId.get(catalog.fpl_team_id ?? -1) ?? "Sin equipo",
+        team: resolveTeamDisplayName(teamByFplId.get(catalog.fpl_team_id ?? -1)),
+        fpl_team_id: catalog.fpl_team_id,
         price: catalog.price ?? 0,
         photo: catalog.photo,
         gameweek: row.gameweek,
@@ -319,8 +365,9 @@ async function getHistoricalPlayerRecords(gameweek: number): Promise<PlayerRecor
         status: catalog.status,
         chance_of_playing_next_round: catalog.chance_of_playing_next_round,
       } satisfies PlayerRecord;
-    })
-    .filter((player): player is PlayerRecord => player !== null);
+    });
+
+  return historicalPlayers.filter((player): player is PlayerRecord => player !== null);
 }
 
 async function getSnapshotPlayerRecords(gameweek: number): Promise<PlayerRecord[]> {
@@ -337,7 +384,39 @@ async function getSnapshotPlayerRecords(gameweek: number): Promise<PlayerRecord[
     throw error;
   }
 
-  return (data ?? []) as PlayerRecord[];
+  const snapshotPlayers = (data ?? []) as PlayerRecord[];
+  const teamIds = Array.from(
+    new Set(
+      snapshotPlayers
+        .map((player) => player.fpl_team_id)
+        .filter((value): value is number => Number.isInteger(value)),
+    ),
+  );
+
+  if (teamIds.length === 0) {
+    return snapshotPlayers;
+  }
+
+  const { data: teamData, error: teamError } = await supabase
+    .from("teams")
+    .select("fpl_id,name,short_name,api_payload")
+    .in("fpl_id", teamIds);
+
+  if (teamError) {
+    throw teamError;
+  }
+
+  const teamByFplId = new Map(
+    ((teamData ?? []) as TeamLookupRow[]).map((row) => [row.fpl_id, row]),
+  );
+
+  return snapshotPlayers.map((player) => ({
+    ...player,
+    team: resolveTeamDisplayName(
+      teamByFplId.get(player.fpl_team_id ?? -1),
+      player.team,
+    ),
+  }));
 }
 
 async function getLatestSnapshotGameweek(): Promise<number | null> {

@@ -24,10 +24,22 @@ type SupabasePlayerRow = {
     | {
         name: string | null;
         short_name: string | null;
+        api_payload:
+          | {
+              name?: string | null;
+              short_name?: string | null;
+            }
+          | null;
       }
     | {
         name: string | null;
         short_name: string | null;
+        api_payload:
+          | {
+              name?: string | null;
+              short_name?: string | null;
+            }
+          | null;
       }[]
     | null;
   element_types:
@@ -74,6 +86,46 @@ function toNumber(value: number | string | null) {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
+function isPlaceholderTeamValue(value: string | null | undefined) {
+  const normalizedValue = value?.trim();
+
+  if (!normalizedValue) {
+    return true;
+  }
+
+  return /^team\s+\d+$/i.test(normalizedValue) || normalizedValue.toUpperCase() === "TEA";
+}
+
+function resolveTeamDisplayName(
+  team:
+    | {
+        name: string | null;
+        short_name: string | null;
+        api_payload?:
+          | {
+              name?: string | null;
+              short_name?: string | null;
+            }
+          | null;
+      }
+    | null,
+) {
+  const apiPayloadName = team?.api_payload?.name?.trim();
+  if (apiPayloadName) {
+    return apiPayloadName;
+  }
+
+  if (!isPlaceholderTeamValue(team?.name)) {
+    return team?.name?.trim() ?? "N/A";
+  }
+
+  if (!isPlaceholderTeamValue(team?.short_name)) {
+    return team?.short_name?.trim() ?? "N/A";
+  }
+
+  return "N/A";
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -98,7 +150,8 @@ export async function GET(request: Request) {
           photo,
           teams:teams!player_catalog_team_id_fkey (
             name,
-            short_name
+            short_name,
+            api_payload
           ),
           element_types:element_types!player_catalog_element_type_id_fkey (
             app_code,
@@ -135,8 +188,8 @@ export async function GET(request: Request) {
         fplId: player.fpl_id,
         name: player.web_name,
         fullName: player.full_name,
-        team: team?.name ?? team?.short_name ?? "N/A",
-        teamName: team?.name ?? team?.short_name ?? "N/A",
+        team: resolveTeamDisplayName(team),
+        teamName: resolveTeamDisplayName(team),
         position: elementType?.app_code ?? "UNK",
         positionLabel: elementType?.singular_name ?? "Unknown",
         price: toNumber(player.price),

@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { ChevronLeft, ChevronRight, Filter, LoaderCircle, SearchX, ShieldAlert, Trophy } from "lucide-react";
 
-type PositionFilter = "ALL" | "GK" | "DEF" | "MID" | "FWD";
+type PositionFilter = "GK" | "DEF" | "MID" | "FWD";
 
 type TeamCatalogPlayer = {
   id: string;
@@ -23,8 +23,29 @@ type TeamCatalogPlayer = {
   photo: string | null;
 };
 
+type TeamCatalogTeam = {
+  id: string;
+  name: string;
+  shortName: string;
+};
+
+function getTeamDisplayName(team: TeamCatalogTeam) {
+  const normalizedName = team.name.trim();
+  const normalizedShortName = team.shortName.trim();
+  const looksGeneric = /^Team\s+\d+$/i.test(normalizedName);
+
+  if (!looksGeneric && normalizedName) {
+    return normalizedName;
+  }
+
+  if (normalizedShortName && normalizedShortName !== normalizedName) {
+    return normalizedShortName;
+  }
+
+  return normalizedName || normalizedShortName || "Equipo";
+}
+
 const positionFilters: Array<{ value: PositionFilter; label: string }> = [
-  { value: "ALL", label: "Todos" },
   { value: "GK", label: "Porteros" },
   { value: "DEF", label: "Defensas" },
   { value: "MID", label: "Mediocampistas" },
@@ -55,22 +76,21 @@ function getStatusLabel(status: string | null) {
 }
 
 export function PlayersCatalogSection() {
-  const [selectedPosition, setSelectedPosition] = useState<PositionFilter>("ALL");
+  const [selectedPosition, setSelectedPosition] = useState<PositionFilter | null>(null);
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [players, setPlayers] = useState<TeamCatalogPlayer[]>([]);
+  const [teams, setTeams] = useState<TeamCatalogTeam[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const filtersRef = useRef<HTMLDivElement | null>(null);
+  const teamsRef = useRef<HTMLDivElement | null>(null);
 
-  function scrollFilters(direction: "left" | "right") {
-    const container = filtersRef.current;
-
-    if (!container) {
-      return;
-    }
-
-    const amount = 180;
-
-    container.scrollBy({
+  function scrollFilters(
+    container: HTMLDivElement | null,
+    direction: "left" | "right",
+    amount = 180,
+  ) {
+    container?.scrollBy({
       left: direction === "left" ? -amount : amount,
       behavior: "smooth",
     });
@@ -84,16 +104,24 @@ export function PlayersCatalogSection() {
       setError(null);
 
       try {
-        const params =
-          selectedPosition === "ALL"
-            ? ""
-            : `?position=${encodeURIComponent(selectedPosition)}`;
-        const response = await fetch(`/api/equipo/jugadores${params}`, {
+        const searchParams = new URLSearchParams();
+
+        if (selectedPosition) {
+          searchParams.set("position", selectedPosition);
+        }
+
+        if (selectedTeamId) {
+          searchParams.set("teamId", selectedTeamId);
+        }
+
+        const queryString = searchParams.toString();
+        const response = await fetch(`/api/equipo/jugadores${queryString ? `?${queryString}` : ""}`, {
           cache: "no-store",
         });
 
         const payload = (await response.json()) as {
           players?: TeamCatalogPlayer[];
+          teams?: TeamCatalogTeam[];
           error?: string;
         };
 
@@ -103,10 +131,12 @@ export function PlayersCatalogSection() {
 
         if (!ignore) {
           setPlayers(payload.players ?? []);
+          setTeams(payload.teams ?? []);
         }
       } catch (fetchError) {
         if (!ignore) {
           setPlayers([]);
+          setTeams([]);
           setError(
             fetchError instanceof Error
               ? fetchError.message
@@ -125,7 +155,15 @@ export function PlayersCatalogSection() {
     return () => {
       ignore = true;
     };
-  }, [selectedPosition]);
+  }, [selectedPosition, selectedTeamId]);
+
+  const selectedTeam =
+    selectedTeamId === null
+      ? null
+      : teams.find((team) => team.id === selectedTeamId) ?? null;
+  const selectedTeamDisplayName = selectedTeam
+    ? getTeamDisplayName(selectedTeam)
+    : null;
 
   return (
     <section className="space-y-4">
@@ -134,48 +172,143 @@ export function PlayersCatalogSection() {
         <h2 className="text-lg font-bold text-white">Jugadores</h2>
       </div>
 
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => scrollFilters("left")}
-          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/70 transition-colors hover:border-[#00ff85]/30 hover:text-[#00ff85]"
-          aria-label="Ver posiciones anteriores"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-
-        <div
-          ref={filtersRef}
-          className="flex flex-1 gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
-          {positionFilters.map((filter) => {
-            const isActive = filter.value === selectedPosition;
-
-            return (
-              <button
-                key={filter.value}
-                type="button"
-                onClick={() => setSelectedPosition(filter.value)}
-                className={`rounded-full border px-4 py-2 text-sm font-semibold whitespace-nowrap transition-colors ${
-                  isActive
-                    ? "border-[#00ff85]/40 bg-[#00ff85]/15 text-[#00ff85]"
-                    : "border-white/10 bg-white/5 text-white/70"
-                }`}
-              >
-                {filter.label}
-              </button>
-            );
-          })}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3 px-1">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/40">
+            Posicion
+          </p>
+          <p className="text-xs text-white/45">
+            {selectedPosition ? "Pulsa de nuevo para quitar el filtro" : "Mostrando todas las posiciones"}
+          </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => scrollFilters("right")}
-          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/70 transition-colors hover:border-[#00ff85]/30 hover:text-[#00ff85]"
-          aria-label="Ver mas posiciones"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => scrollFilters(filtersRef.current, "left")}
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/70 transition-colors hover:border-[#00ff85]/30 hover:text-[#00ff85]"
+            aria-label="Ver posiciones anteriores"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+
+          <div
+            ref={filtersRef}
+            className="flex flex-1 gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {positionFilters.map((filter) => {
+              const isActive = filter.value === selectedPosition;
+
+              return (
+                <button
+                  key={filter.value}
+                  type="button"
+                  onClick={() =>
+                    setSelectedPosition((currentPosition) =>
+                      currentPosition === filter.value ? null : filter.value,
+                    )
+                  }
+                  aria-pressed={isActive}
+                  className={`rounded-full border px-4 py-2 text-sm font-semibold whitespace-nowrap transition-colors ${
+                    isActive
+                      ? "border-[#00ff85]/40 bg-[#00ff85]/15 text-[#00ff85]"
+                      : "border-white/10 bg-white/5 text-white/70"
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => scrollFilters(filtersRef.current, "right")}
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/70 transition-colors hover:border-[#00ff85]/30 hover:text-[#00ff85]"
+            aria-label="Ver mas posiciones"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3 px-1">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/40">
+            Equipo
+          </p>
+          {selectedTeam ? (
+            <button
+              type="button"
+              onClick={() => setSelectedTeamId(null)}
+              className="text-xs font-medium text-[#04f5ff] transition-colors hover:text-white"
+            >
+              Limpiar equipo
+            </button>
+          ) : (
+            <p className="text-xs text-white/45">Filtra por un club concreto</p>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => scrollFilters(teamsRef.current, "left", 220)}
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/70 transition-colors hover:border-[#04f5ff]/30 hover:text-[#04f5ff]"
+            aria-label="Ver equipos anteriores"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+
+          <div
+            ref={teamsRef}
+            className="flex flex-1 gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {teams.map((team) => {
+              const isActive = team.id === selectedTeamId;
+
+              return (
+                <button
+                  key={team.id}
+                  type="button"
+                  onClick={() =>
+                    setSelectedTeamId((currentTeamId) =>
+                      currentTeamId === team.id ? null : team.id,
+                    )
+                  }
+                  aria-pressed={isActive}
+                  title={
+                    team.shortName && team.shortName !== team.name
+                      ? `${team.name} · ${team.shortName}`
+                      : team.name
+                  }
+                  className={`rounded-full border px-4 py-2 text-sm font-semibold whitespace-nowrap transition-colors ${
+                    isActive
+                      ? "border-[#04f5ff]/40 bg-[#04f5ff]/15 text-[#04f5ff]"
+                      : "border-white/10 bg-white/5 text-white/70"
+                  }`}
+                >
+                  {getTeamDisplayName(team)}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => scrollFilters(teamsRef.current, "right", 220)}
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/70 transition-colors hover:border-[#04f5ff]/30 hover:text-[#04f5ff]"
+            aria-label="Ver mas equipos"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+
+        {selectedTeam ? (
+          <p className="px-1 text-xs text-white/55">
+            Mostrando jugadores de {selectedTeamDisplayName}.
+          </p>
+        ) : null}
       </div>
 
       {loading ? (
@@ -202,7 +335,7 @@ export function PlayersCatalogSection() {
       {!loading && !error && players.length === 0 ? (
         <div className="glass-panel flex items-center gap-3 rounded-3xl border-white/10 px-4 py-6 text-white/70">
           <SearchX className="h-5 w-5 text-[#04f5ff]" />
-          <span className="text-sm">No hay jugadores para este filtro.</span>
+          <span className="text-sm">No hay jugadores para la combinacion de filtros actual.</span>
         </div>
       ) : null}
 

@@ -1,14 +1,20 @@
 "use client";
 
-import Image from "next/image";
+import { Plus } from "lucide-react";
 import { motion } from "motion/react";
 
-import type { TeamPlayer, TeamPlayerStatus } from "@/lib/mocks/fpl";
+import type {
+  TeamPlayer,
+  TeamPlayerPosition,
+  TeamPlayerStatus,
+} from "@/features/team/teamTypes";
 
 interface PlayerNodeProps {
-  player: TeamPlayer;
+  player: TeamPlayer | null;
+  position: TeamPlayerPosition;
   index: number;
-  onTap: (player: TeamPlayer) => void;
+  disabled?: boolean;
+  onTap: () => void;
 }
 
 const statusRingColor: Record<TeamPlayerStatus, string> = {
@@ -17,20 +23,51 @@ const statusRingColor: Record<TeamPlayerStatus, string> = {
   doubt: "#e90052",
 };
 
-const statusGlow: Record<TeamPlayerStatus, string> = {
-  fit: "drop-shadow(0 0 8px rgba(0,255,133,0.6))",
-  normal: "drop-shadow(0 0 6px rgba(4,245,255,0.4))",
-  doubt: "drop-shadow(0 0 8px rgba(233,0,82,0.6))",
-};
+export function PlayerNode({
+  player,
+  position,
+  index,
+  disabled = false,
+  onTap,
+}: PlayerNodeProps) {
+  if (!player) {
+    return (
+      <motion.button
+        type="button"
+        disabled={disabled}
+        className="relative flex min-h-[80px] min-w-[64px] flex-col items-center gap-1 text-white/70 disabled:cursor-not-allowed disabled:opacity-60"
+        initial={{ opacity: 0, y: 16, scale: 0.94 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{
+          duration: 0.5,
+          delay: 0.15 + index * 0.06,
+          type: "spring",
+          bounce: 0.3,
+        }}
+        whileTap={disabled ? undefined : { scale: 0.92 }}
+        onClick={onTap}
+      >
+        <div className="relative flex h-12 w-12 items-center justify-center rounded-full border-2 border-dashed border-white/25 bg-[#15001a]/85">
+          <Plus className="h-4 w-4 text-[#04f5ff]" />
+        </div>
 
-export function PlayerNode({ player, index, onTap }: PlayerNodeProps) {
+        <span className="max-w-[72px] text-center text-[10px] font-semibold leading-tight text-white/80">
+          Anadir {position}
+        </span>
+
+        <span className="rounded-lg border border-white/10 bg-white/5 px-2 py-0.5 text-[9px] font-bold text-white/50">
+          Seleccionar
+        </span>
+      </motion.button>
+    );
+  }
+
   const ringColor = statusRingColor[player.status];
-  const glow = statusGlow[player.status];
-
   return (
     <motion.button
       type="button"
-      className="relative flex min-h-[80px] min-w-[64px] cursor-pointer flex-col items-center gap-1"
+      disabled={disabled}
+      className="relative flex min-h-[80px] min-w-[64px] cursor-pointer flex-col items-center gap-1 disabled:cursor-not-allowed disabled:opacity-60"
       initial={{ opacity: 0, y: 16, scale: 0.94 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{
@@ -39,8 +76,8 @@ export function PlayerNode({ player, index, onTap }: PlayerNodeProps) {
         type: "spring",
         bounce: 0.3,
       }}
-      whileTap={{ scale: 0.88 }}
-      onClick={() => onTap(player)}
+      whileTap={disabled ? undefined : { scale: 0.88 }}
+      onClick={onTap}
     >
       {(player.isCaptain || player.isVice) && (
         <motion.span
@@ -58,40 +95,10 @@ export function PlayerNode({ player, index, onTap }: PlayerNodeProps) {
         </motion.span>
       )}
 
-      <div className="relative" style={{ filter: glow }}>
-        <motion.div
-          className="absolute inset-0 rounded-full"
-          style={{ border: `2.5px solid ${ringColor}`, borderRadius: "50%" }}
-          animate={{ scale: [1, 1.18, 1], opacity: [0.7, 0.3, 0.7] }}
-          transition={{
-            duration: player.status === "doubt" ? 1.2 : 2.5,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        />
-
-        <div
-          className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full"
-          style={{
-            border: `2.5px solid ${ringColor}`,
-            background: "linear-gradient(135deg, #1a0020, #2a0035)",
-          }}
-        >
-          {player.image ? (
-            <Image
-              src={player.image}
-              alt={player.shortName}
-              width={48}
-              height={48}
-              sizes="48px"
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <span className="text-xs font-bold text-white/80">
-              {player.shortName.slice(0, 3).toUpperCase()}
-            </span>
-          )}
-        </div>
+      <div className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#1a0020] to-[#2a0035]">
+        <span className="text-xs font-bold text-white/80">
+          {player.shortName.slice(0, 3).toUpperCase()}
+        </span>
       </div>
 
       <span className="max-w-[64px] truncate text-center text-[10px] font-semibold leading-tight text-white/90">
@@ -111,6 +118,10 @@ export function PlayerNode({ player, index, onTap }: PlayerNodeProps) {
       >
         {player.xP.toFixed(1)} xP
       </motion.span>
+
+      <span className="text-[8px] font-medium uppercase tracking-[0.18em] text-white/35">
+        Cambiar
+      </span>
     </motion.button>
   );
 }

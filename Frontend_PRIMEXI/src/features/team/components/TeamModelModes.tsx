@@ -86,7 +86,7 @@ export function TeamModelModes() {
         </div>
       </div>
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-3">
+      <div className="mt-4 flex items-center gap-3">
         {teamModes.map((mode) => {
           const Icon = mode.icon;
           const isActive = mode.id === activeMode;
@@ -96,7 +96,10 @@ export function TeamModelModes() {
               key={mode.id}
               type="button"
               onClick={() => setActiveMode(mode.id)}
-              className="rounded-[22px] border px-4 py-3 text-left transition duration-200"
+              aria-label={mode.label}
+              aria-pressed={isActive}
+              title={mode.label}
+              className="flex h-14 flex-1 items-center justify-center rounded-[22px] border transition duration-200 sm:h-16"
               style={{
                 borderColor: isActive ? `${mode.accent}66` : "rgba(255,255,255,0.08)",
                 background: isActive
@@ -105,29 +108,16 @@ export function TeamModelModes() {
                 boxShadow: isActive ? `0 10px 30px -20px ${mode.accent}` : "none",
               }}
             >
-              <div className="flex items-center justify-between gap-3">
-                <span
-                  className="flex h-10 w-10 items-center justify-center rounded-2xl"
-                  style={{ backgroundColor: isActive ? `${mode.accent}22` : "rgba(255,255,255,0.06)" }}
-                >
-                  <Icon
-                    className="h-5 w-5"
-                    style={{ color: isActive ? mode.accent : "rgba(255,255,255,0.75)" }}
-                  />
-                </span>
-                <span
-                  className="rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
-                  style={{
-                    borderColor: isActive ? `${mode.accent}55` : "rgba(255,255,255,0.08)",
-                    color: isActive ? mode.accent : "rgba(255,255,255,0.5)",
-                  }}
-                >
-                  {mode.badge}
-                </span>
-              </div>
-
-              <p className="mt-3 text-sm font-semibold text-white">{mode.label}</p>
-              <p className="mt-1 text-xs leading-5 text-white/58">{mode.focus}</p>
+              <span
+                className="flex h-11 w-11 items-center justify-center rounded-2xl"
+                style={{ backgroundColor: isActive ? `${mode.accent}22` : "rgba(255,255,255,0.06)" }}
+              >
+                <Icon
+                  className="h-5 w-5"
+                  style={{ color: isActive ? mode.accent : "rgba(255,255,255,0.75)" }}
+                />
+              </span>
+              <span className="sr-only">{mode.label}</span>
             </button>
           );
         })}

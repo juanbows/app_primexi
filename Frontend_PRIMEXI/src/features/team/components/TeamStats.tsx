@@ -7,6 +7,8 @@ interface TeamStatsProps {
   totalXP: number;
   teamValue: number;
   last5Form: number[];
+  budgetCap: number;
+  budgetExceeded: boolean;
 }
 
 function formDotColor(points: number) {
@@ -16,7 +18,16 @@ function formDotColor(points: number) {
   return "#e90052";
 }
 
-export function TeamStats({ totalXP, teamValue, last5Form }: TeamStatsProps) {
+export function TeamStats({
+  totalXP,
+  teamValue,
+  last5Form,
+  budgetCap,
+  budgetExceeded,
+}: TeamStatsProps) {
+  const budgetDelta = budgetCap - teamValue;
+  const valueAccent = budgetExceeded ? "#e90052" : "#04f5ff";
+
   return (
     <motion.div
       className="grid grid-cols-3 gap-2"
@@ -36,14 +47,24 @@ export function TeamStats({ totalXP, teamValue, last5Form }: TeamStatsProps) {
       </motion.div>
 
       <motion.div
-        className="glass-panel rounded-2xl border-[#04f5ff]/25 p-3 text-center"
+        className="glass-panel rounded-2xl p-3 text-center"
+        style={{
+          borderColor: budgetExceeded ? "rgba(233,0,82,0.35)" : "rgba(4,245,255,0.25)",
+        }}
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.3, delay: 0.25 }}
       >
-        <Wallet className="mx-auto mb-1 h-4 w-4 text-[#04f5ff]" />
+        <Wallet className="mx-auto mb-1 h-4 w-4" style={{ color: valueAccent }} />
         <p className="text-[10px] uppercase tracking-wider text-white/50">Valor</p>
-        <p className="text-xl font-bold text-[#04f5ff]">£{teamValue.toFixed(1)}</p>
+        <p className="text-xl font-bold" style={{ color: valueAccent }}>
+          £{teamValue.toFixed(1)}
+        </p>
+        <p className="mt-1 text-[10px] text-white/45">
+          {budgetExceeded
+            ? `+£${Math.abs(budgetDelta).toFixed(1)} sobre limite`
+            : `£${budgetDelta.toFixed(1)} libres`}
+        </p>
       </motion.div>
 
       <motion.div

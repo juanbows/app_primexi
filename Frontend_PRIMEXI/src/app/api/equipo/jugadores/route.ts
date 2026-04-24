@@ -42,6 +42,12 @@ type SupabasePlayerRow = {
     | null;
 };
 
+type SupabaseTeamRow = {
+  id: string;
+  name: string | null;
+  short_name: string | null;
+};
+
 function getServerSupabaseClient() {
   const supabaseUrl =
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
@@ -77,10 +83,11 @@ function toNumber(value: number | string | null) {
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const position = searchParams.get("position")?.trim().toUpperCase() ?? "ALL";
+    const position = searchParams.get("position")?.trim().toUpperCase() ?? null;
+    const teamId = searchParams.get("teamId")?.trim() ?? null;
     const supabase = getServerSupabaseClient();
 
-    let query = supabase
+    let playersQuery = supabase
       .from("player_catalog")
       .select(
         `
@@ -108,20 +115,34 @@ export async function GET(request: Request) {
       .order("total_points", { ascending: false })
       .order("web_name", { ascending: true });
 
-    if (position !== "ALL" && position in positionIdMap) {
-      query = query.eq(
+    if (position && position in positionIdMap) {
+      playersQuery = playersQuery.eq(
         "fpl_position_id",
         positionIdMap[position as keyof typeof positionIdMap],
       );
     }
 
-    const { data, error } = await query;
-
-    if (error) {
-      throw error;
+    if (teamId) {
+      playersQuery = playersQuery.eq("team_id", teamId);
     }
 
-    const players = ((data ?? []) as SupabasePlayerRow[]).map((player) => {
+    const [playersResult, teamsResult] = await Promise.all([
+      playersQuery,
+      supabase
+        .from("teams")
+        .select("id, name, short_name")
+        .order("name", { ascending: true }),
+    ]);
+
+    if (playersResult.error) {
+      throw playersResult.error;
+    }
+
+    if (teamsResult.error) {
+      throw teamsResult.error;
+    }
+
+    const players = ((playersResult.data ?? []) as SupabasePlayerRow[]).map((player) => {
       const team = takeFirstRelation(player.teams);
       const elementType = takeFirstRelation(player.element_types);
 
@@ -142,7 +163,13 @@ export async function GET(request: Request) {
       };
     });
 
-    return NextResponse.json({ players });
+    const teams = ((teamsResult.data ?? []) as SupabaseTeamRow[]).map((team) => ({
+      id: team.id,
+      name: team.name ?? team.short_name ?? "Equipo",
+      shortName: team.short_name ?? team.name ?? "N/A",
+    }));
+
+    return NextResponse.json({ players, teams });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "No se pudieron cargar los jugadores.";

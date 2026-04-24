@@ -42,6 +42,7 @@ export function ProfilePageClient() {
   const [gameweeks, setGameweeks] = useState<GameweekData[]>([]);
   const [transfers, setTransfers] = useState<TransferData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -49,9 +50,9 @@ export function ProfilePageClient() {
     async function loadData() {
       try {
         const [profileData, gameweeksData, transfersData] = await Promise.all([
-          getProfile(),
-          getGameweeks(),
-          getTransfers(),
+          getProfile().catch(() => null),
+          getGameweeks().catch(() => []),
+          getTransfers().catch(() => []),
         ]);
 
         if (!mounted) return;
@@ -59,8 +60,8 @@ export function ProfilePageClient() {
         setProfile(profileData);
         setGameweeks(gameweeksData ?? []);
         setTransfers(transfersData ?? []);
-      } catch (error) {
-        console.error("Failed to load profile page data", error);
+      } catch {
+        if (mounted) setLoadError(true);
       } finally {
         if (mounted) {
           setLoading(false);
@@ -87,6 +88,10 @@ export function ProfilePageClient() {
 
   if (authLoading || loading || !user) {
     return <section className="pt-8 text-sm text-white/70">Cargando perfil...</section>;
+  }
+
+  if (loadError) {
+    return <section className="pt-8 text-sm text-white/70">No se pudieron cargar los datos. Intenta de nuevo más tarde.</section>;
   }
 
   return (

@@ -51,19 +51,24 @@ export async function signOut() {
 export async function createUserProfile(profile) {
   const { id, email, teamName = "Mi equipo" } = profile;
 
-  if (!id || !email) {
-    throw new Error("Missing required user profile data.");
+  if (!id || !email) return null;
+
+  try {
+    const { data, error } = await supabase.from("users").upsert(
+      {
+        id,
+        team_name: teamName,
+        email,
+      },
+      { onConflict: "id" },
+    );
+
+    if (error) {
+      console.warn("createUserProfile upsert warning:", error.message);
+      return null;
+    }
+    return data;
+  } catch {
+    return null;
   }
-
-  const { data, error } = await supabase.from("users").upsert(
-    {
-      id,
-      team_name: teamName,
-      email,
-    },
-    { onConflict: "id" },
-  );
-
-  if (error) throw error;
-  return data;
 }

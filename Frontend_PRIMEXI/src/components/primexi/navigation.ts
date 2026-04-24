@@ -9,7 +9,7 @@ export type NavItem = {
 };
 
 export const navItems: NavItem[] = [
-  { id: "inicio", href: "/", icon: Home, label: "Inicio" },
+  { id: "inicio", href: "/inicio", icon: Home, label: "Inicio" },
   { id: "equipo", href: "/equipo", icon: Users, label: "Equipo" },
   {
     id: "traspasos",

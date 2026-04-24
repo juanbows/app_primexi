@@ -6,11 +6,13 @@ import { motion } from "motion/react";
 type WeekSelectorProps = {
   currentGameweek: number;
   onGameweekChange: (gw: number) => void;
+  maxGameweek?: number;
 };
 
 export function WeekSelector({
   currentGameweek,
   onGameweekChange,
+  maxGameweek = 38,
 }: WeekSelectorProps) {
   const handlePrevious = () => {
     if (currentGameweek > 1) {
@@ -19,7 +21,7 @@ export function WeekSelector({
   };
 
   const handleNext = () => {
-    if (currentGameweek < 38) {
+    if (currentGameweek < maxGameweek) {
       onGameweekChange(currentGameweek + 1);
     }
   };
@@ -57,14 +59,14 @@ export function WeekSelector({
         type="button"
         aria-label="Ir a la jornada siguiente"
         onClick={handleNext}
-        disabled={currentGameweek === 38}
+        disabled={currentGameweek === maxGameweek}
         className={`rounded-xl p-3 transition-all ${
-          currentGameweek === 38
+          currentGameweek === maxGameweek
             ? "cursor-not-allowed bg-[#38003c]/30 text-white/30"
             : "border border-[#00ff85]/30 bg-[#38003c]/60 text-[#00ff85] hover:bg-[#38003c]/80"
         }`}
-        whileHover={currentGameweek < 38 ? { scale: 1.05 } : undefined}
-        whileTap={currentGameweek < 38 ? { scale: 0.95 } : undefined}
+        whileHover={currentGameweek < maxGameweek ? { scale: 1.05 } : undefined}
+        whileTap={currentGameweek < maxGameweek ? { scale: 0.95 } : undefined}
       >
         <ChevronRight className="h-6 w-6" />
       </motion.button>

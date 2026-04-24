@@ -1,19 +1,13 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useState } from "react";
 
 import { CountdownTimer } from "@/components/primexi/CountdownTimer";
 import { NewsIntelligence } from "@/components/primexi/NewsIntelligence";
 import { RevelationPlayer } from "@/components/primexi/RevelationPlayer";
 import { WeekSelector } from "@/components/primexi/WeekSelector";
-import {
-  countdownData,
-  getHomeSummaryForGameweek,
-  initialGameweek,
-  type StatusLevel,
-} from "@/lib/mocks/fpl";
-import { getCurrentGameweek } from "@/services/homeService";
+import type { HomeContext } from "@/services/homeService";
 
 const TopPlayers = dynamic(
   () =>
@@ -29,42 +23,26 @@ const TopPlayers = dynamic(
   },
 );
 
-export function PrimexiHome() {
-  const [currentGameweek, setCurrentGameweek] = useState(initialGameweek);
+type PrimexiHomeProps = {
+  initialHomeContext: HomeContext;
+};
 
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadCurrentGameweek() {
-      try {
-        const gameweek = await getCurrentGameweek();
-
-        if (!isMounted) {
-          return;
-        }
-
-        startTransition(() => {
-          setCurrentGameweek(gameweek);
-        });
-      } catch {
-        // Keep the existing fallback if the live FPL request fails.
-      }
-    }
-
-    void loadCurrentGameweek();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const summary = getHomeSummaryForGameweek(currentGameweek);
+export function PrimexiHome({ initialHomeContext }: PrimexiHomeProps) {
+  const latestSyncedGameweek = initialHomeContext.latestSyncedGameweek;
+  const initialDisplayGameweek =
+    latestSyncedGameweek ?? initialHomeContext.currentGameweek;
+  const [currentGameweek, setCurrentGameweek] = useState(
+    initialDisplayGameweek,
+  );
+  const countdown = initialHomeContext.countdown;
 
   return (
     <div className="space-y-6 py-2">
-      <CountdownTimer countdown={countdownData} />
+      <CountdownTimer countdown={countdown} />
+
       <WeekSelector
         currentGameweek={currentGameweek}
+        maxGameweek={latestSyncedGameweek ?? initialHomeContext.currentGameweek}
         onGameweekChange={(nextGameweek) => {
           startTransition(() => {
             setCurrentGameweek(nextGameweek);
@@ -72,43 +50,13 @@ export function PrimexiHome() {
         }}
       />
 
-      <section className="space-y-3">
-        <div className="flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full bg-[#00ff85]" />
-          <h2 className="text-lg font-bold text-white">Resumen GW</h2>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          <StatusChip label="Calendario" status={summary.fixture} />
-          <StatusChip label="Rotacion" status={summary.rotation} />
-          <StatusChip label="Lesiones" status={summary.injuries} />
-        </div>
-      </section>
-
-      <TopPlayers gameweek={currentGameweek} />
-      <RevelationPlayer gameweek={currentGameweek} />
-      <NewsIntelligence />
+      {currentGameweek !== null ? (
+        <>
+          <TopPlayers gameweek={currentGameweek} />
+          <RevelationPlayer gameweek={currentGameweek} />
+          <NewsIntelligence gameweek={currentGameweek} />
+        </>
+      ) : null}
     </div>
-  );
-}
-
-const statusClassMap: Record<StatusLevel, string> = {
-  high: "border-[#e90052]/40 bg-[#e90052]/15 text-[#e90052]",
-  medium: "border-[#04f5ff]/40 bg-[#04f5ff]/15 text-[#04f5ff]",
-  low: "border-[#00ff85]/40 bg-[#00ff85]/15 text-[#00ff85]",
-};
-
-function StatusChip({
-  label,
-  status,
-}: {
-  label: string;
-  status: StatusLevel;
-}) {
-  return (
-    <span
-      className={`rounded-xl border px-3 py-2 text-center text-xs font-semibold ${statusClassMap[status]}`}
-    >
-      {label}
-    </span>
   );
 }

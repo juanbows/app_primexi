@@ -25,22 +25,16 @@ function formatPrice(price: number | string) {
 }
 
 function buildRevelationAchievement(player: PlayerRecord) {
-  const metrics = [];
-
-  if ((player.goals_scored ?? 0) > 0) {
-    metrics.push(`${player.goals_scored}G`);
-  }
-
-  if ((player.assists ?? 0) > 0) {
-    metrics.push(`${player.assists}A`);
-  }
-
-  if ((player.clean_sheets ?? 0) > 0) {
-    metrics.push(`${player.clean_sheets}CS`);
-  }
-
-  metrics.push(`${player.minutes ?? 0} min`);
+  const metrics = [`Forma ${Number(player.form ?? 0).toFixed(1)}`];
+  metrics.push(`${Number(player.selected_by_percent ?? 0).toFixed(1)}% sel`);
   metrics.push(`Precio ${formatPrice(player.price)}m`);
+
+  if (
+    player.chance_of_playing_next_round !== null &&
+    player.chance_of_playing_next_round < 100
+  ) {
+    metrics.push(`${player.chance_of_playing_next_round}% juega`);
+  }
 
   return metrics.join(" | ");
 }
@@ -49,7 +43,7 @@ function mapRevelationPlayer(player: PlayerRecord): RevelationCardData {
   return {
     name: player.name,
     team: player.team,
-    points: player.total_points ?? 0,
+    points: player.event_points ?? 0,
     achievement: buildRevelationAchievement(player),
   };
 }

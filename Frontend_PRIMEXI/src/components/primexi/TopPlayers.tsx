@@ -16,7 +16,8 @@ type Player = {
   points: number;
   achievement: string;
   position: number;
-  image: string;
+  image: string | null;
+  positionCode: string;
 };
 
 type TopPlayersProps = {
@@ -64,23 +65,39 @@ const positionImages: Record<string, string> = {
 };
 
 function buildGameweekAchievement(player: PlayerRecord) {
-  const metrics = [];
+  const metrics = [`Forma ${Number(player.form ?? 0).toFixed(1)}`];
 
-  if ((player.goals_scored ?? 0) > 0) {
-    metrics.push(`${player.goals_scored}G`);
+  if (player.selected_by_percent !== null) {
+    metrics.push(`${Number(player.selected_by_percent).toFixed(1)}% sel`);
   }
 
-  if ((player.assists ?? 0) > 0) {
-    metrics.push(`${player.assists}A`);
-  }
+  metrics.push(`£${Number(player.price).toFixed(1)}m`);
 
-  if ((player.clean_sheets ?? 0) > 0) {
-    metrics.push(`${player.clean_sheets}CS`);
+  if (
+    player.chance_of_playing_next_round !== null &&
+    player.chance_of_playing_next_round < 100
+  ) {
+    metrics.push(`${player.chance_of_playing_next_round}% juega`);
   }
-
-  metrics.push(`${player.minutes ?? 0} min`);
 
   return metrics.join(" | ");
+}
+
+function getPlayerInitials(name: string) {
+  return name
+    .split(/[.\s]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((segment) => segment[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+function resolveUsableImage(photo: string | null, position: string) {
+  if (!photo || photo.includes("resources.premierleague.com")) {
+    return null;
+  }
+
+  return photo ?? positionImages[position] ?? null;
 }
 
 function mapPlayerToCard(player: PlayerRecord, rank: number): Player {
@@ -88,19 +105,21 @@ function mapPlayerToCard(player: PlayerRecord, rank: number): Player {
     id: player.id,
     name: player.name,
     team: player.team,
-    points: player.total_points ?? 0,
+    points: player.event_points ?? 0,
     achievement: buildGameweekAchievement(player),
     position: rank,
-    image:
-      player.photo ??
-      positionImages[player.position] ??
-      "https://images.unsplash.com/photo-1632300873131-1dd749c83f97?w=400",
+    image: resolveUsableImage(player.photo, player.position),
+    positionCode: player.position,
   };
 }
 
 function PlayerCard({ player }: { player: Player }) {
   const colors = positionColors[player.position as keyof typeof positionColors];
   const isFirst = player.position === 1;
+  const initials = getPlayerInitials(player.name);
+  const fallbackImage = positionImages[player.positionCode] ?? positionImages.FWD;
+  const [hasImageError, setHasImageError] = useState(false);
+  const imageSrc = hasImageError ? null : player.image;
 
   return (
     <motion.div
@@ -122,13 +141,41 @@ function PlayerCard({ player }: { player: Player }) {
       >
         <div className="relative h-64 overflow-hidden">
           <div className="absolute inset-0 z-10 bg-gradient-to-b from-transparent via-transparent to-[#38003c]" />
-          <Image
-            src={player.image}
-            alt={player.name}
-            fill
-            className="object-cover"
-            sizes="(max-width: 768px) 100vw, 420px"
-          />
+          {imageSrc ? (
+            <Image
+              src={imageSrc}
+              alt={player.name}
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, 420px"
+              onError={() => {
+                setHasImageError(true);
+              }}
+            />
+          ) : (
+            <>
+              <Image
+                src={fallbackImage}
+                alt=""
+                fill
+                aria-hidden="true"
+                className="object-cover opacity-30 blur-[1px]"
+                sizes="(max-width: 768px) 100vw, 420px"
+              />
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(4,245,255,0.35),_transparent_55%),linear-gradient(160deg,_rgba(56,0,60,0.45),_rgba(8,12,24,0.9))]" />
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 px-6 text-center">
+                <div className="flex h-24 w-24 items-center justify-center rounded-full border border-white/15 bg-white/10 text-3xl font-bold text-white shadow-lg backdrop-blur-sm">
+                  {initials}
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold tracking-[0.4em] text-[#04f5ff]/80">
+                    {player.positionCode}
+                  </p>
+                  <p className="text-sm text-white/70">{player.team}</p>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="space-y-4 p-6">
@@ -254,7 +301,10 @@ export function TopPlayers({ gameweek }: TopPlayersProps) {
           <div className="relative -mx-4">
             <Slider ref={sliderRef} {...settings}>
               {players.map((player) => (
-                <PlayerCard key={player.id} player={player} />
+                <PlayerCard
+                  key={`${player.id}:${player.image ?? "fallback"}`}
+                  player={player}
+                />
               ))}
             </Slider>
           </div>

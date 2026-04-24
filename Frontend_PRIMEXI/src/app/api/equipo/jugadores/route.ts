@@ -42,12 +42,6 @@ type SupabasePlayerRow = {
     | null;
 };
 
-type SupabaseTeamRow = {
-  id: string;
-  name: string | null;
-  short_name: string | null;
-};
-
 function getServerSupabaseClient() {
   const supabaseUrl =
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
@@ -126,20 +120,10 @@ export async function GET(request: Request) {
       playersQuery = playersQuery.eq("team_id", teamId);
     }
 
-    const [playersResult, teamsResult] = await Promise.all([
-      playersQuery,
-      supabase
-        .from("teams")
-        .select("id, name, short_name")
-        .order("name", { ascending: true }),
-    ]);
+    const playersResult = await playersQuery;
 
     if (playersResult.error) {
       throw playersResult.error;
-    }
-
-    if (teamsResult.error) {
-      throw teamsResult.error;
     }
 
     const players = ((playersResult.data ?? []) as SupabasePlayerRow[]).map((player) => {
@@ -151,7 +135,8 @@ export async function GET(request: Request) {
         fplId: player.fpl_id,
         name: player.web_name,
         fullName: player.full_name,
-        team: team?.short_name ?? team?.name ?? "N/A",
+        team: team?.name ?? team?.short_name ?? "N/A",
+        teamName: team?.name ?? team?.short_name ?? "N/A",
         position: elementType?.app_code ?? "UNK",
         positionLabel: elementType?.singular_name ?? "Unknown",
         price: toNumber(player.price),
@@ -163,13 +148,7 @@ export async function GET(request: Request) {
       };
     });
 
-    const teams = ((teamsResult.data ?? []) as SupabaseTeamRow[]).map((team) => ({
-      id: team.id,
-      name: team.name ?? team.short_name ?? "Equipo",
-      shortName: team.short_name ?? team.name ?? "N/A",
-    }));
-
-    return NextResponse.json({ players, teams });
+    return NextResponse.json({ players });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "No se pudieron cargar los jugadores.";

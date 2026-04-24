@@ -13,6 +13,7 @@ type TeamCatalogPlayer = {
   name: string;
   fullName: string;
   team: string;
+  teamName: string;
   position: string;
   positionLabel: string;
   price: number | null;
@@ -29,20 +30,8 @@ type TeamCatalogTeam = {
   shortName: string;
 };
 
-function getTeamDisplayName(team: TeamCatalogTeam) {
-  const normalizedName = team.name.trim();
-  const normalizedShortName = team.shortName.trim();
-  const looksGeneric = /^Team\s+\d+$/i.test(normalizedName);
-
-  if (!looksGeneric && normalizedName) {
-    return normalizedName;
-  }
-
-  if (normalizedShortName && normalizedShortName !== normalizedName) {
-    return normalizedShortName;
-  }
-
-  return normalizedName || normalizedShortName || "Equipo";
+function getTeamLabel(team: TeamCatalogTeam) {
+  return team.name || team.shortName || "Equipo";
 }
 
 const positionFilters: Array<{ value: PositionFilter; label: string }> = [
@@ -80,10 +69,12 @@ export function PlayersCatalogSection() {
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [players, setPlayers] = useState<TeamCatalogPlayer[]>([]);
   const [teams, setTeams] = useState<TeamCatalogTeam[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [teamsError, setTeamsError] = useState<string | null>(null);
   const filtersRef = useRef<HTMLDivElement | null>(null);
   const teamsRef = useRef<HTMLDivElement | null>(null);
+  const hasActiveFilters = selectedPosition !== null || selectedTeamId !== null;
 
   function scrollFilters(
     container: HTMLDivElement | null,
@@ -99,7 +90,58 @@ export function PlayersCatalogSection() {
   useEffect(() => {
     let ignore = false;
 
+    async function loadTeams() {
+      setTeamsError(null);
+
+      try {
+        const response = await fetch("/api/equipo/equipos", {
+          cache: "no-store",
+        });
+
+        const payload = (await response.json()) as {
+          teams?: TeamCatalogTeam[];
+          error?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(payload.error ?? "No se pudieron cargar los equipos.");
+        }
+
+        if (!ignore) {
+          setTeams(payload.teams ?? []);
+        }
+      } catch (fetchError) {
+        if (!ignore) {
+          setTeams([]);
+          setTeamsError(
+            fetchError instanceof Error
+              ? fetchError.message
+              : "No se pudieron cargar los equipos.",
+          );
+        }
+      }
+    }
+
+    void loadTeams();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let ignore = false;
+
     async function loadPlayers() {
+      if (!hasActiveFilters) {
+        if (!ignore) {
+          setPlayers([]);
+          setError(null);
+          setLoading(false);
+        }
+        return;
+      }
+
       setLoading(true);
       setError(null);
 
@@ -121,7 +163,6 @@ export function PlayersCatalogSection() {
 
         const payload = (await response.json()) as {
           players?: TeamCatalogPlayer[];
-          teams?: TeamCatalogTeam[];
           error?: string;
         };
 
@@ -131,12 +172,10 @@ export function PlayersCatalogSection() {
 
         if (!ignore) {
           setPlayers(payload.players ?? []);
-          setTeams(payload.teams ?? []);
         }
       } catch (fetchError) {
         if (!ignore) {
           setPlayers([]);
-          setTeams([]);
           setError(
             fetchError instanceof Error
               ? fetchError.message
@@ -150,20 +189,18 @@ export function PlayersCatalogSection() {
       }
     }
 
-    loadPlayers();
+    void loadPlayers();
 
     return () => {
       ignore = true;
     };
-  }, [selectedPosition, selectedTeamId]);
+  }, [hasActiveFilters, selectedPosition, selectedTeamId]);
 
   const selectedTeam =
     selectedTeamId === null
       ? null
       : teams.find((team) => team.id === selectedTeamId) ?? null;
-  const selectedTeamDisplayName = selectedTeam
-    ? getTeamDisplayName(selectedTeam)
-    : null;
+  const selectedTeamDisplayName = selectedTeam?.name ?? selectedTeam?.shortName ?? null;
 
   return (
     <section className="space-y-4">
@@ -277,18 +314,14 @@ export function PlayersCatalogSection() {
                     )
                   }
                   aria-pressed={isActive}
-                  title={
-                    team.shortName && team.shortName !== team.name
-                      ? `${team.name} · ${team.shortName}`
-                      : team.name
-                  }
-                  className={`rounded-full border px-4 py-2 text-sm font-semibold whitespace-nowrap transition-colors ${
+                  title={`${team.name} · ${team.shortName}`}
+                  className={`min-w-[6.75rem] flex-shrink-0 rounded-full border px-5 py-2 text-sm font-semibold whitespace-nowrap transition-colors ${
                     isActive
                       ? "border-[#04f5ff]/40 bg-[#04f5ff]/15 text-[#04f5ff]"
                       : "border-white/10 bg-white/5 text-white/70"
                   }`}
                 >
-                  {getTeamDisplayName(team)}
+                  {getTeamLabel(team)}
                 </button>
               );
             })}
@@ -309,16 +342,20 @@ export function PlayersCatalogSection() {
             Mostrando jugadores de {selectedTeamDisplayName}.
           </p>
         ) : null}
+
+        {teamsError ? (
+          <p className="px-1 text-xs text-[#e90052]/75">{teamsError}</p>
+        ) : null}
       </div>
 
-      {loading ? (
+      {hasActiveFilters && loading ? (
         <div className="glass-panel flex items-center justify-center gap-3 rounded-3xl border-white/10 px-4 py-8 text-white/70">
           <LoaderCircle className="h-5 w-5 animate-spin text-[#00ff85]" />
           <span className="text-sm">Cargando jugadores...</span>
         </div>
       ) : null}
 
-      {!loading && error ? (
+      {hasActiveFilters && !loading && error ? (
         <div className="glass-panel rounded-3xl border-[#e90052]/20 px-4 py-5 text-sm text-white/75">
           <div className="mb-2 flex items-center gap-2 text-[#e90052]">
             <ShieldAlert className="h-4 w-4" />
@@ -332,14 +369,14 @@ export function PlayersCatalogSection() {
         </div>
       ) : null}
 
-      {!loading && !error && players.length === 0 ? (
+      {hasActiveFilters && !loading && !error && players.length === 0 ? (
         <div className="glass-panel flex items-center gap-3 rounded-3xl border-white/10 px-4 py-6 text-white/70">
           <SearchX className="h-5 w-5 text-[#04f5ff]" />
           <span className="text-sm">No hay jugadores para la combinacion de filtros actual.</span>
         </div>
       ) : null}
 
-      {!loading && !error && players.length > 0 ? (
+      {hasActiveFilters && !loading && !error && players.length > 0 ? (
         <div className="space-y-3">
           {players.map((player, index) => {
             const status = getStatusLabel(player.status);
@@ -359,7 +396,7 @@ export function PlayersCatalogSection() {
                         {player.fullName}
                       </h3>
                       <p className="text-sm text-white/55">
-                        {player.team} · {player.position}
+                        {player.teamName} · {player.position}
                       </p>
                     </div>
                     <span

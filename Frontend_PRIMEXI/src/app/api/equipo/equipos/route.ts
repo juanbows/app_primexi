@@ -1,10 +1,18 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+import { resolveTeamDisplayName, resolveTeamShortName } from "@/lib/teamNames";
+
 type SupabaseTeamRow = {
   id: string;
   name: string | null;
   short_name: string | null;
+  api_payload:
+    | {
+        name?: string | null;
+        short_name?: string | null;
+      }
+    | null;
 };
 
 function getServerSupabaseClient() {
@@ -27,18 +35,27 @@ export async function GET() {
     const supabase = getServerSupabaseClient();
     const { data, error } = await supabase
       .from("teams")
-      .select("id, name, short_name")
-      .order("name", { ascending: true });
+      .select("id, name, short_name, api_payload");
 
     if (error) {
       throw error;
     }
 
-    const teams = ((data ?? []) as SupabaseTeamRow[]).map((team) => ({
-      id: team.id,
-      name: team.name ?? team.short_name ?? "Equipo",
-      shortName: team.short_name ?? team.name ?? "N/A",
-    }));
+    const teams = ((data ?? []) as SupabaseTeamRow[])
+      .map((team) => ({
+        id: team.id,
+        name: resolveTeamDisplayName({
+          name: team.name,
+          shortName: team.short_name,
+          apiPayload: team.api_payload,
+        }),
+        shortName: resolveTeamShortName({
+          name: team.name,
+          shortName: team.short_name,
+          apiPayload: team.api_payload,
+        }),
+      }))
+      .sort((left, right) => left.name.localeCompare(right.name));
 
     return NextResponse.json({ teams });
   } catch (error) {

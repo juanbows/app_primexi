@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+import { resolveTeamDisplayName, resolveTeamShortName } from "@/lib/teamNames";
+
 const positionIdMap = {
   GK: 1,
   DEF: 2,
@@ -24,10 +26,22 @@ type SupabasePlayerRow = {
     | {
         name: string | null;
         short_name: string | null;
+        api_payload:
+          | {
+              name?: string | null;
+              short_name?: string | null;
+            }
+          | null;
       }
     | {
         name: string | null;
         short_name: string | null;
+        api_payload:
+          | {
+              name?: string | null;
+              short_name?: string | null;
+            }
+          | null;
       }[]
     | null;
   element_types:
@@ -98,7 +112,8 @@ export async function GET(request: Request) {
           photo,
           teams:teams!player_catalog_team_id_fkey (
             name,
-            short_name
+            short_name,
+            api_payload
           ),
           element_types:element_types!player_catalog_element_type_id_fkey (
             app_code,
@@ -129,14 +144,25 @@ export async function GET(request: Request) {
     const players = ((playersResult.data ?? []) as SupabasePlayerRow[]).map((player) => {
       const team = takeFirstRelation(player.teams);
       const elementType = takeFirstRelation(player.element_types);
+      const teamName = resolveTeamDisplayName({
+        name: team?.name,
+        shortName: team?.short_name,
+        apiPayload: team?.api_payload,
+        fallback: "N/A",
+      });
 
       return {
         id: player.id,
         fplId: player.fpl_id,
         name: player.web_name,
         fullName: player.full_name,
-        team: team?.name ?? team?.short_name ?? "N/A",
-        teamName: team?.name ?? team?.short_name ?? "N/A",
+        team: resolveTeamShortName({
+          name: team?.name,
+          shortName: team?.short_name,
+          apiPayload: team?.api_payload,
+          fallback: teamName,
+        }),
+        teamName,
         position: elementType?.app_code ?? "UNK",
         positionLabel: elementType?.singular_name ?? "Unknown",
         price: toNumber(player.price),

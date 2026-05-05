@@ -13,7 +13,10 @@ type GameweekItem = {
 };
 
 export function GameweeksPageClient() {
-  const { user, loading: authLoading } = useAuthUser({ required: true, redirectTo: "/" });
+  const { user, loading: authLoading } = useAuthUser({
+    required: true,
+    redirectTo: "/login",
+  });
   const [gameweeks, setGameweeks] = useState<GameweekItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

@@ -2,8 +2,11 @@
 
 import { useEffect, useState } from "react";
 
+import Image from "next/image";
 import { Sparkles, Zap } from "lucide-react";
 import { motion } from "motion/react";
+
+import { resolvePlayerPhotoUrl } from "@/lib/playerImages";
 import {
   getRevelationPlayer,
   type PlayerRecord,
@@ -18,6 +21,8 @@ type RevelationCardData = {
   team: string;
   points: number;
   achievement: string;
+  image: string | null;
+  position: string;
 };
 
 function formatPrice(price: number | string) {
@@ -39,13 +44,54 @@ function buildRevelationAchievement(player: PlayerRecord) {
   return metrics.join(" | ");
 }
 
+function getPlayerInitials(name: string) {
+  return name
+    .split(/[.\s]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((segment) => segment[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
 function mapRevelationPlayer(player: PlayerRecord): RevelationCardData {
   return {
     name: player.name,
     team: player.team,
     points: player.event_points ?? 0,
     achievement: buildRevelationAchievement(player),
+    image: resolvePlayerPhotoUrl(player.photo, "250x250"),
+    position: player.position,
   };
+}
+
+function RevelationAvatar({ player }: { player: RevelationCardData }) {
+  const [failedImageSrc, setFailedImageSrc] = useState<string | null>(null);
+  const imageSrc =
+    player.image && failedImageSrc !== player.image ? player.image : null;
+
+  return (
+    <div className="relative mx-auto h-24 w-24 overflow-hidden rounded-full border-2 border-[#00ff85]/60 bg-[#17001b] shadow-lg shadow-[#00ff85]/20">
+      {imageSrc ? (
+        <Image
+          src={imageSrc}
+          alt={player.name}
+          fill
+          sizes="96px"
+          className="object-cover object-top"
+          onError={() => setFailedImageSrc(imageSrc)}
+        />
+      ) : (
+        <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-[#1a0020] to-[#2a0035] text-center">
+          <span className="text-2xl font-bold text-white/85">
+            {getPlayerInitials(player.name)}
+          </span>
+          <span className="text-[9px] font-semibold text-[#04f5ff]">
+            {player.position}
+          </span>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function RevelationPlayer({ gameweek }: RevelationPlayerProps) {
@@ -144,6 +190,8 @@ export function RevelationPlayer({ gameweek }: RevelationPlayerProps) {
             <p className="text-center text-sm text-white/80">{errorMessage}</p>
           ) : revelation ? (
             <>
+              <RevelationAvatar player={revelation} />
+
               <div className="flex items-center justify-center gap-3">
                 <div className="text-center">
                   <h3 className="mb-1 text-3xl font-bold text-white">

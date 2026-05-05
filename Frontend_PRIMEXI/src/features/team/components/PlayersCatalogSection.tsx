@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
+import Image from "next/image";
 import { ChevronLeft, ChevronRight, Filter, LoaderCircle, SearchX, ShieldAlert, Trophy } from "lucide-react";
 
 type PositionFilter = "GK" | "DEF" | "MID" | "FWD";
@@ -62,6 +63,15 @@ function getStatusLabel(status: string | null) {
     default:
       return { text: "Sin dato", styles: "border-white/15 bg-white/5 text-white/60" };
   }
+}
+
+function getPlayerInitials(name: string) {
+  return name
+    .split(/[.\s]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((segment) => segment[0]?.toUpperCase() ?? "")
+    .join("");
 }
 
 export function PlayersCatalogSection() {
@@ -387,23 +397,29 @@ export function PlayersCatalogSection() {
                 className="glass-panel rounded-3xl border-white/10 p-4 shadow-[0_16px_45px_-30px_rgba(0,0,0,0.9)]"
               >
                 <div className="min-w-0">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-[10px] uppercase tracking-[0.3em] text-white/45">
-                        #{index + 1}
-                      </p>
-                      <h3 className="truncate text-base font-semibold text-white">
-                        {player.fullName}
-                      </h3>
-                      <p className="text-sm text-white/55">
-                        {player.teamName} · {player.position}
-                      </p>
+                  <div className="flex items-start gap-3">
+                    <PlayerCatalogAvatar player={player} />
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[10px] uppercase tracking-[0.3em] text-white/45">
+                            #{index + 1}
+                          </p>
+                          <h3 className="truncate text-base font-semibold text-white">
+                            {player.fullName}
+                          </h3>
+                          <p className="text-sm text-white/55">
+                            {player.teamName} · {player.position}
+                          </p>
+                        </div>
+                        <span
+                          className={`flex-shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold ${status.styles}`}
+                        >
+                          {status.text}
+                        </span>
+                      </div>
                     </div>
-                    <span
-                      className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${status.styles}`}
-                    >
-                      {status.text}
-                    </span>
                   </div>
 
                   <div className="mt-3 grid grid-cols-4 gap-2">
@@ -436,6 +452,31 @@ export function PlayersCatalogSection() {
         </div>
       ) : null}
     </section>
+  );
+}
+
+function PlayerCatalogAvatar({ player }: { player: TeamCatalogPlayer }) {
+  const [failedImageSrc, setFailedImageSrc] = useState<string | null>(null);
+  const imageSrc =
+    player.photo && failedImageSrc !== player.photo ? player.photo : null;
+
+  return (
+    <div className="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[#1a0020] to-[#2a0035]">
+      {imageSrc ? (
+        <Image
+          src={imageSrc}
+          alt={player.fullName}
+          fill
+          sizes="56px"
+          className="object-cover object-top"
+          onError={() => setFailedImageSrc(imageSrc)}
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-sm font-bold text-white/75">
+          {getPlayerInitials(player.name)}
+        </div>
+      )}
+    </div>
   );
 }
 

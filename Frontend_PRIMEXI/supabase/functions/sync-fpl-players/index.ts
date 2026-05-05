@@ -197,7 +197,8 @@ type PlayerSnapshotRow = {
 const FPL_BOOTSTRAP_URL = "https://fantasy.premierleague.com/api/bootstrap-static/";
 const FPL_FIXTURES_URL = "https://fantasy.premierleague.com/api/fixtures/";
 const PLAYER_PHOTO_BASE_URL =
-  "https://resources.premierleague.com/premierleague/photos/players/110x140/p";
+  "https://resources.premierleague.com/premierleague/photos/players/250x250/p";
+const PLAYER_PHOTO_FALLBACK_URL = "/players/player-placeholder.svg";
 const UPSERT_CHUNK_SIZE = 200;
 const jsonHeaders = {
   "Content-Type": "application/json",
@@ -249,11 +250,19 @@ function toNullableInteger(value: NumericLike) {
 }
 
 function normalizePhoto(photo: string | null | undefined) {
-  if (!photo) {
-    return null;
+  const normalizedPhoto = photo?.trim();
+
+  if (!normalizedPhoto) {
+    return PLAYER_PHOTO_FALLBACK_URL;
   }
 
-  return `${PLAYER_PHOTO_BASE_URL}${photo}`;
+  const photoCode = normalizedPhoto.match(/^p?(\d+)(?:\.\w+)?$/i)?.[1];
+
+  if (!photoCode) {
+    return PLAYER_PHOTO_FALLBACK_URL;
+  }
+
+  return `${PLAYER_PHOTO_BASE_URL}${photoCode}.png`;
 }
 
 function resolveDefaultGameweek(events: FplEvent[]) {

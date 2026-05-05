@@ -1,5 +1,8 @@
 "use client";
 
+import { useState } from "react";
+
+import Image from "next/image";
 import { Plus } from "lucide-react";
 import { motion } from "motion/react";
 
@@ -30,6 +33,8 @@ export function PlayerNode({
   disabled = false,
   onTap,
 }: PlayerNodeProps) {
+  const [failedImageSrc, setFailedImageSrc] = useState<string | null>(null);
+
   if (!player) {
     return (
       <motion.button
@@ -63,6 +68,9 @@ export function PlayerNode({
   }
 
   const ringColor = statusRingColor[player.status];
+  const imageSrc =
+    player.image && failedImageSrc !== player.image ? player.image : null;
+
   return (
     <motion.button
       type="button"
@@ -95,10 +103,24 @@ export function PlayerNode({
         </motion.span>
       )}
 
-      <div className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#1a0020] to-[#2a0035]">
-        <span className="text-xs font-bold text-white/80">
-          {player.shortName.slice(0, 3).toUpperCase()}
-        </span>
+      <div
+        className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#1a0020] to-[#2a0035]"
+        style={{ border: `2px solid ${ringColor}80` }}
+      >
+        {imageSrc ? (
+          <Image
+            src={imageSrc}
+            alt={player.name}
+            fill
+            sizes="48px"
+            className="object-cover object-top"
+            onError={() => setFailedImageSrc(imageSrc)}
+          />
+        ) : (
+          <span className="text-xs font-bold text-white/80">
+            {player.shortName.slice(0, 3).toUpperCase()}
+          </span>
+        )}
       </div>
 
       <span className="max-w-[64px] truncate text-center text-[10px] font-semibold leading-tight text-white/90">

@@ -9,7 +9,7 @@ type RequireAuthProps = {
 };
 
 export function RequireAuth({ children }: RequireAuthProps) {
-  const { user, loading } = useAuthUser({ required: true, redirectTo: "/" });
+  const { user, loading } = useAuthUser({ required: true, redirectTo: "/login" });
 
   if (loading || !user) {
     return <section className="pt-8 text-sm text-white/70">Validando sesión...</section>;

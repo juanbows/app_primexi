@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+import { resolvePlayerPhotoUrl } from "@/lib/playerImages";
 import { resolveTeamDisplayName, resolveTeamShortName } from "@/lib/teamNames";
 
 const positionIdMap = {
@@ -170,7 +171,7 @@ export async function GET(request: Request) {
         form: toNumber(player.form),
         ownership: toNumber(player.selected_by_percent),
         status: player.status,
-        photo: player.photo,
+        photo: resolvePlayerPhotoUrl(player.photo, "250x250"),
       };
     });
 

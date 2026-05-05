@@ -7,6 +7,8 @@ import { ChevronLeft, ChevronRight, Trophy, TrendingUp } from "lucide-react";
 import { motion } from "motion/react";
 import Slider from "react-slick";
 import type { Settings } from "react-slick";
+
+import { resolvePlayerPhotoUrl } from "@/lib/playerImages";
 import { getTopPlayers, type PlayerRecord } from "@/services/homeService";
 
 type Player = {
@@ -92,14 +94,6 @@ function getPlayerInitials(name: string) {
     .join("");
 }
 
-function resolveUsableImage(photo: string | null, position: string) {
-  if (!photo || photo.includes("resources.premierleague.com")) {
-    return null;
-  }
-
-  return photo ?? positionImages[position] ?? null;
-}
-
 function mapPlayerToCard(player: PlayerRecord, rank: number): Player {
   return {
     id: player.id,
@@ -108,7 +102,7 @@ function mapPlayerToCard(player: PlayerRecord, rank: number): Player {
     points: player.event_points ?? 0,
     achievement: buildGameweekAchievement(player),
     position: rank,
-    image: resolveUsableImage(player.photo, player.position),
+    image: resolvePlayerPhotoUrl(player.photo, "250x250"),
     positionCode: player.position,
   };
 }

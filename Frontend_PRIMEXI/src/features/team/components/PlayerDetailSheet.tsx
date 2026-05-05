@@ -1,12 +1,13 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useState } from "react";
 
 import Image from "next/image";
 import { DollarSign, Flame, Swords, TrendingUp, Users, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
-import type { TeamPlayer } from "@/lib/mocks/fpl";
+import type { TeamPlayer } from "@/features/team/teamTypes";
 
 interface PlayerDetailSheetProps {
   player: TeamPlayer | null;
@@ -32,6 +33,11 @@ export function PlayerDetailSheet({
   open,
   onClose,
 }: PlayerDetailSheetProps) {
+  const [failedImageSrc, setFailedImageSrc] = useState<string | null>(null);
+  const currentImage = player?.image ?? null;
+  const imageSrc =
+    currentImage && failedImageSrc !== currentImage ? currentImage : null;
+
   if (!player) {
     return null;
   }
@@ -70,14 +76,15 @@ export function PlayerDetailSheet({
                   background: "linear-gradient(135deg, #1a0020, #2a0035)",
                 }}
               >
-                {player.image ? (
+                {imageSrc ? (
                   <Image
-                    src={player.image}
+                    src={imageSrc}
                     alt={player.name}
                     width={56}
                     height={56}
                     sizes="56px"
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-cover object-top"
+                    onError={() => setFailedImageSrc(imageSrc)}
                   />
                 ) : (
                   <span className="text-sm font-bold text-white/70">

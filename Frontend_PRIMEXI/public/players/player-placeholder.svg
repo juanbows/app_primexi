@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 250 250" role="img" aria-labelledby="title desc">
+  <title id="title">Jugador sin foto oficial</title>
+  <desc id="desc">Silueta de jugador usada cuando la foto oficial no esta disponible.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#38003c"/>
+      <stop offset="0.55" stop-color="#111827"/>
+      <stop offset="1" stop-color="#00ff85"/>
+    </linearGradient>
+    <linearGradient id="shirt" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#04f5ff"/>
+      <stop offset="1" stop-color="#e90052"/>
+    </linearGradient>
+  </defs>
+  <rect width="250" height="250" rx="0" fill="url(#bg)"/>
+  <circle cx="125" cy="82" r="43" fill="#f4f7fb"/>
+  <path d="M51 225c6-55 34-87 74-87s68 32 74 87H51z" fill="url(#shirt)"/>
+  <path d="M82 153l43 72 43-72c-12-10-26-15-43-15s-31 5-43 15z" fill="#f4f7fb" opacity=".94"/>
+  <path d="M101 158l24 40 24-40" fill="none" stroke="#38003c" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity=".45"/>
+</svg>

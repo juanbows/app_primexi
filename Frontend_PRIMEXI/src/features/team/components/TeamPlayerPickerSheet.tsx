@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useDeferredValue, useMemo, useState } from "react";
 
+import Image from "next/image";
 import {
   LoaderCircle,
   Search,
@@ -43,6 +44,15 @@ const statusLabel = {
   normal: { text: "Seguimiento", color: "#04f5ff" },
   doubt: { text: "Alerta", color: "#e90052" },
 } as const;
+
+function getPlayerInitials(name: string) {
+  return name
+    .split(/[.\s]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((segment) => segment[0]?.toUpperCase() ?? "")
+    .join("");
+}
 
 export function TeamPlayerPickerSheet({
   open,
@@ -205,26 +215,32 @@ function PickerSheetContent({
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.03 * index }}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-base font-semibold text-white">
-                        {player.name}
-                      </p>
-                      <p className="text-sm text-white/55">
-                        {player.teamName} · {player.position}
-                      </p>
-                    </div>
+                  <div className="flex items-start gap-3">
+                    <PlayerThumbnail player={player} color={status.color} />
 
-                    <span
-                      className="rounded-full border px-2.5 py-1 text-[10px] font-semibold"
-                      style={{
-                        color: status.color,
-                        borderColor: `${status.color}50`,
-                        backgroundColor: `${status.color}18`,
-                      }}
-                    >
-                      {status.text}
-                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-base font-semibold text-white">
+                            {player.name}
+                          </p>
+                          <p className="text-sm text-white/55">
+                            {player.teamName} · {player.position}
+                          </p>
+                        </div>
+
+                        <span
+                          className="flex-shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold"
+                          style={{
+                            color: status.color,
+                            borderColor: `${status.color}50`,
+                            backgroundColor: `${status.color}18`,
+                          }}
+                        >
+                          {status.text}
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="mt-3 grid grid-cols-4 gap-2">
@@ -277,6 +293,40 @@ function PickerSheetContent({
         ) : null}
       </div>
     </>
+  );
+}
+
+function PlayerThumbnail({
+  player,
+  color,
+}: {
+  player: TeamPlayer;
+  color: string;
+}) {
+  const [failedImageSrc, setFailedImageSrc] = useState<string | null>(null);
+  const imageSrc =
+    player.image && failedImageSrc !== player.image ? player.image : null;
+
+  return (
+    <div
+      className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-2xl bg-gradient-to-br from-[#1a0020] to-[#2a0035]"
+      style={{ border: `1px solid ${color}55` }}
+    >
+      {imageSrc ? (
+        <Image
+          src={imageSrc}
+          alt={player.name}
+          fill
+          sizes="48px"
+          className="object-cover object-top"
+          onError={() => setFailedImageSrc(imageSrc)}
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-xs font-bold text-white/75">
+          {getPlayerInitials(player.shortName)}
+        </div>
+      )}
+    </div>
   );
 }
 

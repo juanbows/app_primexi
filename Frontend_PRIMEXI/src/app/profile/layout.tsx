@@ -8,7 +8,7 @@ export default function ProfileLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { user, loading } = useAuthUser({ required: true, redirectTo: "/" });
+  const { user, loading } = useAuthUser({ required: true, redirectTo: "/login" });
 
   return (
     <PrimexiShell>

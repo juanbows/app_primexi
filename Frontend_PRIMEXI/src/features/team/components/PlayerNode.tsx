@@ -57,11 +57,11 @@ export function PlayerNode({
         </div>
 
         <span className="max-w-[72px] text-center text-[10px] font-semibold leading-tight text-white/80">
-          Anadir {position}
+          Agregar {position}
         </span>
 
         <span className="rounded-lg border border-white/10 bg-white/5 px-2 py-0.5 text-[9px] font-bold text-white/50">
-          Seleccionar
+          Elegir
         </span>
       </motion.button>
     );

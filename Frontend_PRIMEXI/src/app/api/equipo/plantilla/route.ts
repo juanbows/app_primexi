@@ -11,13 +11,6 @@ import type {
   TeamPlayerStatus,
 } from "@/features/team/teamTypes";
 
-const INITIAL_POSITION_LIMITS: Record<TeamPlayerPosition, number> = {
-  GK: 1,
-  DEF: 4,
-  MID: 3,
-  FWD: 3,
-};
-
 const POSITION_VALUES = new Set<TeamPlayerPosition>(["GK", "DEF", "MID", "FWD"]);
 const POSITION_CANDIDATE_LIMIT = 60;
 
@@ -239,64 +232,6 @@ function toTeamPlayer(
   };
 }
 
-function assignLeadership(players: TeamPlayer[]) {
-  const rankedPlayers = [...players]
-    .sort((left, right) => right.xP - left.xP)
-    .map((player) => player.id);
-  const captainId = rankedPlayers[0] ?? null;
-  const viceId = rankedPlayers[1] ?? null;
-
-  return players.map((player) => ({
-    ...player,
-    isCaptain: captainId === player.id,
-    isVice: viceId === player.id,
-  }));
-}
-
-function pickInitialPlayerRows(players: PlayerSnapshotRow[]) {
-  const remainingLimits = { ...INITIAL_POSITION_LIMITS };
-  const selectedRows: PlayerSnapshotRow[] = [];
-
-  for (const player of players) {
-    if (!isTeamPlayerPosition(player.position)) {
-      continue;
-    }
-
-    if (remainingLimits[player.position] <= 0) {
-      continue;
-    }
-
-    selectedRows.push(player);
-    remainingLimits[player.position] -= 1;
-
-    if (selectedRows.length === 11) {
-      break;
-    }
-  }
-
-  return selectedRows;
-}
-
-function pickInitialSquad(players: TeamPlayer[]) {
-  const remainingLimits = { ...INITIAL_POSITION_LIMITS };
-  const squad: TeamPlayer[] = [];
-
-  for (const player of players) {
-    if (remainingLimits[player.position] <= 0) {
-      continue;
-    }
-
-    squad.push(player);
-    remainingLimits[player.position] -= 1;
-
-    if (squad.length === 11) {
-      break;
-    }
-  }
-
-  return assignLeadership(squad);
-}
-
 async function getLatestGameweek(supabase: ServerSupabaseClient) {
   const { data, error } = await supabase
     .from("players")
@@ -321,9 +256,9 @@ async function getLatestGameweek(supabase: ServerSupabaseClient) {
 async function loadPlayers(
   supabase: ServerSupabaseClient,
   latestGameweek: number,
-  position: TeamPlayerPosition | null,
+  position: TeamPlayerPosition,
 ) {
-  let query = supabase
+  const query = supabase
     .from("players")
     .select(
       `
@@ -345,12 +280,10 @@ async function loadPlayers(
       `,
     )
     .eq("gameweek", latestGameweek)
+    .eq("position", position)
     .order("total_points", { ascending: false })
-    .order("form", { ascending: false });
-
-  if (position) {
-    query = query.eq("position", position).limit(POSITION_CANDIDATE_LIMIT);
-  }
+    .order("form", { ascending: false })
+    .limit(POSITION_CANDIDATE_LIMIT);
 
   const { data, error } = await query;
 
@@ -434,10 +367,18 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const positionParam = searchParams.get("position")?.trim().toUpperCase() ?? null;
     const position = isTeamPlayerPosition(positionParam) ? positionParam : null;
+
+    if (!position) {
+      return NextResponse.json({
+        budgetCap: FPL_BUDGET_CAP,
+        formation: TEAM_FORMATION,
+        squad: [],
+      });
+    }
+
     const supabase = getServerSupabaseClient();
     const latestGameweek = await getLatestGameweek(supabase);
-    const allPlayerRows = await loadPlayers(supabase, latestGameweek, position);
-    const playerRows = position ? allPlayerRows : pickInitialPlayerRows(allPlayerRows);
+    const playerRows = await loadPlayers(supabase, latestGameweek, position);
     const teams = await loadTeams(supabase);
     const teamsByFplId = new Map(
       teams
@@ -471,17 +412,9 @@ export async function GET(request: Request) {
       )
       .filter((player): player is TeamPlayer => player !== null);
 
-    if (position) {
-      return NextResponse.json({
-        budgetCap: FPL_BUDGET_CAP,
-        players: hydratedPlayers,
-      });
-    }
-
     return NextResponse.json({
       budgetCap: FPL_BUDGET_CAP,
-      formation: TEAM_FORMATION,
-      squad: pickInitialSquad(hydratedPlayers),
+      players: hydratedPlayers,
     });
   } catch (error) {
     const message =

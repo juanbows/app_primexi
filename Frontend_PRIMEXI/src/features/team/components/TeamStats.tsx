@@ -9,6 +9,7 @@ interface TeamStatsProps {
   last5Form: number[];
   budgetCap: number;
   budgetExceeded: boolean;
+  filledPlayersCount: number;
 }
 
 function formDotColor(points: number) {
@@ -24,9 +25,11 @@ export function TeamStats({
   last5Form,
   budgetCap,
   budgetExceeded,
+  filledPlayersCount,
 }: TeamStatsProps) {
   const budgetDelta = budgetCap - teamValue;
   const valueAccent = budgetExceeded ? "#e90052" : "#04f5ff";
+  const hasPlayers = filledPlayersCount > 0;
 
   return (
     <motion.div
@@ -43,7 +46,9 @@ export function TeamStats({
       >
         <Zap className="mx-auto mb-1 h-4 w-4 text-[#00ff85]" />
         <p className="text-[10px] uppercase tracking-wider text-white/50">xP Total</p>
-        <p className="text-xl font-bold text-[#00ff85]">{totalXP.toFixed(1)}</p>
+        <p className="text-xl font-bold text-[#00ff85]">
+          {hasPlayers ? totalXP.toFixed(1) : "--"}
+        </p>
       </motion.div>
 
       <motion.div
@@ -75,19 +80,23 @@ export function TeamStats({
       >
         <Flame className="mx-auto mb-1 h-4 w-4 text-[#7c3aed]" />
         <p className="text-[10px] uppercase tracking-wider text-white/50">Forma</p>
-        <div className="mt-1.5 flex items-center justify-center gap-1">
-          {last5Form.map((points, index) => (
-            <motion.div
-              key={index}
-              className="h-2.5 w-2.5 rounded-full"
-              style={{ backgroundColor: formDotColor(points) }}
-              initial={{ opacity: 0, scale: 0 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.4 + index * 0.08, type: "spring", bounce: 0.5 }}
-              title={`GW: ${points} pts`}
-            />
-          ))}
-        </div>
+        {hasPlayers ? (
+          <div className="mt-1.5 flex items-center justify-center gap-1">
+            {last5Form.map((points, index) => (
+              <motion.div
+                key={index}
+                className="h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: formDotColor(points) }}
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.4 + index * 0.08, type: "spring", bounce: 0.5 }}
+                title={`GW: ${points} pts`}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="mt-1.5 text-xs font-semibold text-white/45">Sin datos</p>
+        )}
       </motion.div>
     </motion.div>
   );

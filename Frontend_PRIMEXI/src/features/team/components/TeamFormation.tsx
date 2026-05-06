@@ -2,13 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import {
-  AlertTriangle,
-  LoaderCircle,
-  RefreshCcw,
-  Shield,
-  ShieldAlert,
-} from "lucide-react";
+import { AlertTriangle, Shield, Trash2, UserPlus } from "lucide-react";
 import { motion } from "motion/react";
 
 import { PlayerNode } from "@/features/team/components/PlayerNode";
@@ -26,18 +20,13 @@ import type {
   TeamSlot,
 } from "@/features/team/teamTypes";
 
-type InitialSquadPayload = {
-  formation?: string;
-  budgetCap?: number;
-  squad?: TeamPlayer[];
-  error?: string;
-};
-
 type PositionPlayersPayload = {
   players?: TeamPlayer[];
   budgetCap?: number;
   error?: string;
 };
+
+const USER_TEAM_STORAGE_KEY = "primexi:user-team-slots";
 
 function applyLeadershipToSlots(slots: TeamSlot[]) {
   const rankedSlots = slots
@@ -70,21 +59,26 @@ function applyLeadershipToSlots(slots: TeamSlot[]) {
   }));
 }
 
-function buildSlotsFromSquad(squad: TeamPlayer[]) {
+function isStoredTeamPlayer(
+  player: TeamPlayer | null | undefined,
+  position: TeamPlayerPosition,
+): player is TeamPlayer {
+  return Boolean(
+    player &&
+      player.position === position &&
+      typeof player.id === "string" &&
+      Array.isArray(player.last5),
+  );
+}
+
+function buildSlotsFromStoredSlots(storedSlots: TeamSlot[]) {
   const slots = buildEmptyTeamSlots();
-  const playersByPosition = new Map<TeamPlayerPosition, TeamPlayer[]>();
 
-  squad.forEach((player) => {
-    const currentPlayers = playersByPosition.get(player.position) ?? [];
-    currentPlayers.push(player);
-    playersByPosition.set(player.position, currentPlayers);
-  });
-
-  const hydratedSlots = slots.map((slot) => {
-    const nextPlayer = playersByPosition.get(slot.position)?.shift() ?? null;
+  const hydratedSlots = slots.map((slot, index) => {
+    const nextPlayer = storedSlots[index]?.player ?? null;
     return {
       ...slot,
-      player: nextPlayer,
+      player: isStoredTeamPlayer(nextPlayer, slot.position) ? nextPlayer : null,
     };
   });
 
@@ -105,11 +99,9 @@ function buildLast5TeamForm(slots: TeamSlot[]) {
 }
 
 export function TeamFormation() {
-  const [formation, setFormation] = useState(TEAM_FORMATION);
   const [budgetCap, setBudgetCap] = useState(FPL_BUDGET_CAP);
   const [slots, setSlots] = useState<TeamSlot[]>(() => buildEmptyTeamSlots());
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [storageReady, setStorageReady] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [activeSlotIndex, setActiveSlotIndex] = useState<number | null>(null);
   const [pickerLoading, setPickerLoading] = useState(false);
@@ -144,6 +136,10 @@ export function TeamFormation() {
     [slots],
   );
   const last5Form = useMemo(() => buildLast5TeamForm(slots), [slots]);
+  const filledSlotCount = useMemo(
+    () => slots.filter((slot) => slot.player !== null).length,
+    [slots],
+  );
   const fitPlayersCount = useMemo(
     () =>
       slots.filter((slot) => slot.player?.status === "fit").length,
@@ -165,35 +161,6 @@ export function TeamFormation() {
     [slots],
   );
 
-  async function loadInitialSquad() {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch("/api/equipo/plantilla", {
-        cache: "no-store",
-      });
-      const payload = (await response.json()) as InitialSquadPayload;
-
-      if (!response.ok) {
-        throw new Error(payload.error ?? "No se pudo cargar tu equipo.");
-      }
-
-      setFormation(payload.formation ?? TEAM_FORMATION);
-      setBudgetCap(payload.budgetCap ?? FPL_BUDGET_CAP);
-      setSlots(buildSlotsFromSquad(payload.squad ?? []));
-    } catch (fetchError) {
-      setSlots(buildEmptyTeamSlots());
-      setError(
-        fetchError instanceof Error
-          ? fetchError.message
-          : "No se pudo cargar tu equipo.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
   async function loadCandidates(position: TeamPlayerPosition) {
     setPickerLoading(true);
     setPickerError(null);
@@ -213,7 +180,7 @@ export function TeamFormation() {
         [position]: payload.players ?? [],
       }));
 
-      if (payload.budgetCap) {
+      if (payload.budgetCap !== undefined) {
         setBudgetCap(payload.budgetCap);
       }
     } catch (fetchError) {
@@ -228,8 +195,40 @@ export function TeamFormation() {
   }
 
   useEffect(() => {
-    loadInitialSquad();
+    try {
+      const storedTeam = window.localStorage.getItem(USER_TEAM_STORAGE_KEY);
+
+      if (!storedTeam) {
+        return;
+      }
+
+      const parsedSlots = JSON.parse(storedTeam) as TeamSlot[];
+
+      if (Array.isArray(parsedSlots)) {
+        setSlots(buildSlotsFromStoredSlots(parsedSlots));
+      }
+    } catch {
+      try {
+        window.localStorage.removeItem(USER_TEAM_STORAGE_KEY);
+      } catch {
+        // Ignore storage failures; the team builder still works in memory.
+      }
+    } finally {
+      setStorageReady(true);
+    }
   }, []);
+
+  useEffect(() => {
+    if (!storageReady) {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(USER_TEAM_STORAGE_KEY, JSON.stringify(slots));
+    } catch {
+      // Local storage can be unavailable in private browsing modes.
+    }
+  }, [slots, storageReady]);
 
   function openPicker(slotIndex: number) {
     const slot = slots[slotIndex];
@@ -269,6 +268,31 @@ export function TeamFormation() {
     setPickerOpen(false);
   }
 
+  function handleClearActiveSlot() {
+    if (activeSlotIndex === null) {
+      return;
+    }
+
+    setSlots((currentSlots) =>
+      applyLeadershipToSlots(
+        currentSlots.map((slot, index) =>
+          index === activeSlotIndex
+            ? {
+                ...slot,
+                player: null,
+              }
+            : slot,
+        ),
+      ),
+    );
+    setPickerOpen(false);
+  }
+
+  function handleClearTeam() {
+    setSlots(buildEmptyTeamSlots());
+    setPickerOpen(false);
+  }
+
   return (
     <>
       <motion.div
@@ -286,7 +310,7 @@ export function TeamFormation() {
           <Shield className="h-5 w-5 text-[#04f5ff]" />
           <h2 className="text-lg font-bold text-white">Mi Equipo</h2>
           <span className="ml-auto rounded-lg border border-white/10 px-2 py-0.5 text-xs text-white/40">
-            {formation}
+            {TEAM_FORMATION}
           </span>
         </motion.div>
 
@@ -296,7 +320,46 @@ export function TeamFormation() {
           last5Form={last5Form}
           budgetCap={budgetCap}
           budgetExceeded={budgetExceeded}
+          filledPlayersCount={filledSlotCount}
         />
+
+        <motion.div
+          className="glass-panel flex items-start gap-3 rounded-2xl border border-[#04f5ff]/20 bg-[#04f5ff]/10 px-4 py-4"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.12 }}
+        >
+          <div className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl border border-[#04f5ff]/25 bg-[#04f5ff]/10">
+            <UserPlus className="h-4 w-4 text-[#04f5ff]" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-white">
+                  {filledSlotCount === 0
+                    ? "Tu once aun esta vacio"
+                    : `${filledSlotCount}/${slots.length} puestos elegidos`}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-white/65">
+                  {filledSlotCount === 0
+                    ? "Toca cualquier puesto de la cancha para elegir jugadores reales y armar tu equipo."
+                    : "Sigue completando los puestos que faltan o toca un jugador para cambiarlo."}
+                </p>
+              </div>
+
+              {filledSlotCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={handleClearTeam}
+                  className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-white/65 transition-colors hover:border-[#e90052]/30 hover:text-white"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Limpiar
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </motion.div>
 
         {budgetExceeded ? (
           <motion.div
@@ -315,24 +378,6 @@ export function TeamFormation() {
               </p>
             </div>
           </motion.div>
-        ) : null}
-
-        {error ? (
-          <div className="glass-panel rounded-2xl border border-[#e90052]/20 bg-[#e90052]/10 px-4 py-4 text-sm text-white/75">
-            <div className="mb-2 flex items-center gap-2 text-[#e90052]">
-              <ShieldAlert className="h-4 w-4" />
-              <span className="font-semibold">No pudimos montar tu once</span>
-            </div>
-            <p>{error}</p>
-            <button
-              type="button"
-              onClick={() => void loadInitialSquad()}
-              className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/80 transition-colors hover:text-white"
-            >
-              <RefreshCcw className="h-3.5 w-3.5" />
-              Reintentar
-            </button>
-          </div>
         ) : null}
 
         <motion.div
@@ -393,25 +438,12 @@ export function TeamFormation() {
                     player={slot.player}
                     position={slot.position}
                     index={index + row.start}
-                    disabled={loading}
                     onTap={() => openPicker(index + row.start)}
                   />
                 </div>
               ))}
             </div>
           ))}
-
-          {loading ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-[#041309]/30 backdrop-blur-[2px]">
-              <div className="rounded-3xl border border-white/10 bg-[#120015]/80 px-5 py-4 text-center text-white/75">
-                <LoaderCircle className="mx-auto mb-3 h-5 w-5 animate-spin text-[#00ff85]" />
-                <p className="text-sm font-semibold text-white">Cargando once real</p>
-                <p className="mt-1 text-xs text-white/55">
-                  Estamos trayendo jugadores disponibles desde Supabase.
-                </p>
-              </div>
-            </div>
-          ) : null}
         </motion.div>
 
         <motion.div
@@ -425,10 +457,15 @@ export function TeamFormation() {
             animate={{ scale: [1, 1.4, 1], opacity: [1, 0.5, 1] }}
             transition={{ duration: 1.5, repeat: Infinity }}
           />
-          <span className="text-[10px] font-medium text-white/70">Pulso del Equipo</span>
+          <span className="text-[10px] font-medium text-white/70">Equipo</span>
           <span className="text-[10px] font-bold text-[#00ff85]">
-            {fitPlayersCount}/{slots.length} disponibles
+            {filledSlotCount}/{slots.length} elegidos
           </span>
+          {filledSlotCount > 0 ? (
+            <span className="text-[10px] font-medium text-white/45">
+              {fitPlayersCount} disponibles
+            </span>
+          ) : null}
         </motion.div>
       </motion.div>
 
@@ -442,6 +479,7 @@ export function TeamFormation() {
         selectedPlayerIds={selectedPlayerIds}
         onClose={() => setPickerOpen(false)}
         onSelect={handlePickPlayer}
+        onClear={handleClearActiveSlot}
       />
     </>
   );

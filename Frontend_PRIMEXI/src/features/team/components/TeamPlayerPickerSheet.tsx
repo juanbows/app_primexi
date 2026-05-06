@@ -9,6 +9,7 @@ import {
   Search,
   SearchX,
   ShieldAlert,
+  Trash2,
   Users,
   Wallet,
   X,
@@ -30,6 +31,7 @@ interface TeamPlayerPickerSheetProps {
   selectedPlayerIds: Set<string>;
   onClose: () => void;
   onSelect: (player: TeamPlayer) => void;
+  onClear?: () => void;
 }
 
 const positionLabels: Record<TeamPlayerPosition, string> = {
@@ -64,6 +66,7 @@ export function TeamPlayerPickerSheet({
   selectedPlayerIds,
   onClose,
   onSelect,
+  onClear,
 }: TeamPlayerPickerSheetProps) {
   return (
     <AnimatePresence>
@@ -96,6 +99,7 @@ export function TeamPlayerPickerSheet({
               selectedPlayerIds={selectedPlayerIds}
               onClose={onClose}
               onSelect={onSelect}
+              onClear={onClear}
             />
           </motion.div>
         </div>
@@ -113,6 +117,7 @@ function PickerSheetContent({
   selectedPlayerIds,
   onClose,
   onSelect,
+  onClear,
 }: Omit<TeamPlayerPickerSheetProps, "open">) {
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
@@ -147,6 +152,16 @@ function PickerSheetContent({
               ? `Cambias a ${currentPlayer.shortName} por otro jugador disponible en Supabase.`
               : "Selecciona un jugador real para este hueco del once."}
           </p>
+          {currentPlayer && onClear ? (
+            <button
+              type="button"
+              onClick={onClear}
+              className="mt-3 inline-flex items-center gap-2 rounded-full border border-[#e90052]/25 bg-[#e90052]/10 px-3 py-1.5 text-xs font-semibold text-[#ff8aaa] transition-colors hover:border-[#e90052]/45 hover:text-white"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Quitar de este puesto
+            </button>
+          ) : null}
         </div>
 
         <button
@@ -282,7 +297,7 @@ function PickerSheetContent({
                       </span>
                     ) : (
                       <span className="font-semibold text-[#00ff85]">
-                        Reemplazar
+                        {currentPlayer ? "Reemplazar" : "Elegir"}
                       </span>
                     )}
                   </div>

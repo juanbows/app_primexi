@@ -10,6 +10,7 @@ import type {
   TeamPlayerPosition,
   TeamPlayerStatus,
 } from "@/features/team/teamTypes";
+import { resolvePlayerPhotoUrl } from "@/lib/playerImages";
 
 const POSITION_VALUES = new Set<TeamPlayerPosition>(["GK", "DEF", "MID", "FWD"]);
 const POSITION_CANDIDATE_LIMIT = 60;
@@ -228,7 +229,7 @@ function toTeamPlayer(
     nextFixture: nextFixture?.label ?? "Sin fixture",
     fixtureDifficulty: nextFixture?.difficulty ?? 3,
     last5,
-    image: player.photo ?? undefined,
+    image: resolvePlayerPhotoUrl(player.photo, "250x250"),
   };
 }
 

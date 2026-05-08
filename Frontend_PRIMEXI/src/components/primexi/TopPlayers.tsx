@@ -122,17 +122,17 @@ function PlayerCard({ player }: { player: Player }) {
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.5 }}
     >
-      <div
-        className={`absolute left-1/2 top-4 z-10 flex h-14 w-14 -translate-x-1/2 items-center justify-center rounded-full ${colors.badge} ${colors.shadow} shadow-lg`}
-      >
-        <span className="text-2xl font-bold text-white">{player.position}</span>
-      </div>
-
       <motion.div
         className={`relative overflow-hidden rounded-3xl border-2 bg-gradient-to-b from-[#38003c]/90 to-[#38003c]/70 backdrop-blur-sm ${colors.border} ${colors.glow} ${isFirst ? "scale-105" : "scale-100"}`}
         whileHover={{ scale: isFirst ? 1.08 : 1.03 }}
         transition={{ duration: 0.2 }}
       >
+        <div
+          className={`absolute right-3 top-3 z-30 flex h-11 w-11 items-center justify-center rounded-full border border-white/35 ${colors.badge} ${colors.shadow} shadow-lg`}
+        >
+          <span className="text-xl font-bold text-white">{player.position}</span>
+        </div>
+
         <div className="relative h-64 overflow-hidden">
           <div className="absolute inset-0 z-10 bg-gradient-to-b from-transparent via-transparent to-[#38003c]" />
           {imageSrc ? (

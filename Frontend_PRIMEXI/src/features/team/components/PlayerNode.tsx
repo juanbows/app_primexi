@@ -11,6 +11,7 @@ import type {
   TeamPlayerPosition,
   TeamPlayerStatus,
 } from "@/features/team/teamTypes";
+import { resolvePlayerPhotoUrl } from "@/lib/playerImages";
 
 interface PlayerNodeProps {
   player: TeamPlayer | null;
@@ -68,14 +69,14 @@ export function PlayerNode({
   }
 
   const ringColor = statusRingColor[player.status];
-  const imageSrc =
-    player.image && failedImageSrc !== player.image ? player.image : null;
+  const resolvedImageSrc = resolvePlayerPhotoUrl(player.image, "250x250");
+  const imageSrc = failedImageSrc !== resolvedImageSrc ? resolvedImageSrc : null;
 
   return (
     <motion.button
       type="button"
       disabled={disabled}
-      className="relative flex min-h-[80px] min-w-[64px] cursor-pointer flex-col items-center gap-1 disabled:cursor-not-allowed disabled:opacity-60"
+      className="relative flex min-h-[92px] min-w-[68px] cursor-pointer flex-col items-center gap-1 disabled:cursor-not-allowed disabled:opacity-60"
       initial={{ opacity: 0, y: 16, scale: 0.94 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{
@@ -104,7 +105,7 @@ export function PlayerNode({
       )}
 
       <div
-        className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#1a0020] to-[#2a0035]"
+        className="relative flex h-[60px] w-[60px] items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#1a0020] to-[#2a0035] shadow-lg shadow-black/30"
         style={{ border: `2px solid ${ringColor}80` }}
       >
         {imageSrc ? (
@@ -112,7 +113,7 @@ export function PlayerNode({
             src={imageSrc}
             alt={player.name}
             fill
-            sizes="48px"
+            sizes="60px"
             className="object-cover object-top"
             onError={() => setFailedImageSrc(imageSrc)}
           />

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+import { getOfficialTeamMap, resolveTeamName } from "@/lib/fplOfficial";
+
 const positionIdMap = {
   GK: 1,
   DEF: 2,
@@ -22,10 +24,12 @@ type SupabasePlayerRow = {
   photo: string | null;
   teams:
     | {
+        fpl_id: number | null;
         name: string | null;
         short_name: string | null;
       }
     | {
+        fpl_id: number | null;
         name: string | null;
         short_name: string | null;
       }[]
@@ -97,6 +101,7 @@ export async function GET(request: Request) {
           status,
           photo,
           teams:teams!player_catalog_team_id_fkey (
+            fpl_id,
             name,
             short_name
           ),
@@ -126,17 +131,19 @@ export async function GET(request: Request) {
       throw playersResult.error;
     }
 
+    const officialTeamMap = await getOfficialTeamMap().catch(() => null);
     const players = ((playersResult.data ?? []) as SupabasePlayerRow[]).map((player) => {
       const team = takeFirstRelation(player.teams);
       const elementType = takeFirstRelation(player.element_types);
+      const teamName = resolveTeamName(team, officialTeamMap);
 
       return {
         id: player.id,
         fplId: player.fpl_id,
         name: player.web_name,
         fullName: player.full_name,
-        team: team?.name ?? team?.short_name ?? "N/A",
-        teamName: team?.name ?? team?.short_name ?? "N/A",
+        team: teamName,
+        teamName,
         position: elementType?.app_code ?? "UNK",
         positionLabel: elementType?.singular_name ?? "Unknown",
         price: toNumber(player.price),

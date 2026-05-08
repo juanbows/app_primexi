@@ -8,7 +8,8 @@
     "build:turbopack": "next build",
     "start": "next start",
     "lint": "eslint",
-    "sync:fpl": "node ./scripts/run-fpl-sync.mjs"
+    "sync:fpl": "node ./scripts/run-fpl-sync.mjs",
+    "scrape:whoscored": "node ./scripts/scrape-whoscored-match.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.102.1",

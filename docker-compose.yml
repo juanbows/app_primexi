@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: primexi-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-primexi_local}
+      POSTGRES_USER: ${POSTGRES_USER:-primexi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-primexi_dev_password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - primexi_postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-primexi} -d ${POSTGRES_DB:-primexi_local}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  primexi_postgres_data:

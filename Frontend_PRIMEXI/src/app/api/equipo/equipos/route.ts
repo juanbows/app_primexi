@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+import {
+  getOfficialTeamMap,
+  resolveTeamName,
+  resolveTeamShortName,
+} from "@/lib/fplOfficial";
+
 type SupabaseTeamRow = {
   id: string;
+  fpl_id: number | null;
   name: string | null;
   short_name: string | null;
 };
@@ -27,18 +34,24 @@ export async function GET() {
     const supabase = getServerSupabaseClient();
     const { data, error } = await supabase
       .from("teams")
-      .select("id, name, short_name")
+      .select("id, fpl_id, name, short_name")
       .order("name", { ascending: true });
 
     if (error) {
       throw error;
     }
 
-    const teams = ((data ?? []) as SupabaseTeamRow[]).map((team) => ({
-      id: team.id,
-      name: team.name ?? team.short_name ?? "Equipo",
-      shortName: team.short_name ?? team.name ?? "N/A",
-    }));
+    const officialTeamMap = await getOfficialTeamMap().catch(() => null);
+
+    const teams = ((data ?? []) as SupabaseTeamRow[])
+      .map((team) => ({
+        id: team.id,
+        name: resolveTeamName(team, officialTeamMap),
+        shortName: resolveTeamShortName(team, officialTeamMap),
+      }))
+      .sort((left, right) =>
+        left.name.localeCompare(right.name, "en", { sensitivity: "base" }),
+      );
 
     return NextResponse.json({ teams });
   } catch (error) {

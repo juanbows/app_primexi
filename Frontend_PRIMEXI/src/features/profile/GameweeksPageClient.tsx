@@ -69,12 +69,19 @@ export function GameweeksPageClient() {
     setError(null);
 
     try {
-      const created = await addGameweek({
+      const created = (await addGameweek({
         gameweek: Number(gameweek),
         points: Number(points),
-      });
+      })) as GameweekItem;
 
-      setGameweeks((current) => [created, ...current]);
+      setGameweeks((current) => {
+        const withoutUpdatedGameweek = current.filter(
+          (entry) => entry.gameweek !== created.gameweek,
+        );
+        return [created, ...withoutUpdatedGameweek].sort(
+          (left, right) => right.gameweek - left.gameweek,
+        );
+      });
       setGameweek("");
       setPoints("");
     } catch (submitError) {
@@ -99,6 +106,7 @@ export function GameweeksPageClient() {
               <input
                 type="number"
                 min={1}
+                max={38}
                 value={gameweek}
                 onChange={(event) => setGameweek(event.target.value)}
                 required

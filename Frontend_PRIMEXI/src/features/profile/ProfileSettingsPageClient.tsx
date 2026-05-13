@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { signOut } from "@/lib/auth";
-import { getProfile } from "@/lib/data";
+import { getProfile, updateProfile } from "@/lib/data";
 import { Card, CardTitle, SectionHeader } from "@/features/profile/components/ProfileUi";
 
 type ProfileRecord = {
@@ -15,24 +15,39 @@ type ProfileRecord = {
 export function ProfileSettingsPageClient() {
   const router = useRouter();
   const [teamName, setTeamName] = useState("Mi equipo");
+  const [savedTeamName, setSavedTeamName] = useState("Mi equipo");
   const [email, setEmail] = useState("-");
   const [notifications, setNotifications] = useState(true);
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [loading, setLoading] = useState(true);
+  const [savingProfile, setSavingProfile] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
+    const storedNotifications = window.localStorage.getItem("primexi-notifications");
+
+    if (storedNotifications === "off") {
+      setNotifications(false);
+    }
 
     async function loadProfile() {
       try {
         const profile = (await getProfile()) as ProfileRecord | null;
         if (!mounted || !profile) return;
 
-        setTeamName(profile.team_name ?? "Mi equipo");
+        const currentTeamName = profile.team_name ?? "Mi equipo";
+
+        setTeamName(currentTeamName);
+        setSavedTeamName(currentTeamName);
         setEmail(profile.email ?? "-");
       } catch (error) {
-        console.error("Failed to load settings profile", error);
+        if (mounted) {
+          setError(
+            error instanceof Error ? error.message : "No se pudo cargar el perfil.",
+          );
+        }
       } finally {
         if (mounted) {
           setLoading(false);
@@ -46,6 +61,39 @@ export function ProfileSettingsPageClient() {
       mounted = false;
     };
   }, []);
+
+  async function handleSaveProfile() {
+    setSavingProfile(true);
+    setMessage(null);
+    setError(null);
+
+    try {
+      const updatedProfile = (await updateProfile({ teamName })) as ProfileRecord;
+      const nextTeamName = updatedProfile.team_name ?? (teamName.trim() || "Mi equipo");
+
+      setTeamName(nextTeamName);
+      setSavedTeamName(nextTeamName);
+      setMessage("Nombre del equipo guardado.");
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "No se pudo guardar el nombre del equipo.",
+      );
+    } finally {
+      setSavingProfile(false);
+    }
+  }
+
+  function handleToggleNotifications() {
+    setNotifications((current) => {
+      const next = !current;
+      window.localStorage.setItem("primexi-notifications", next ? "on" : "off");
+      setMessage(next ? "Notificaciones activadas." : "Notificaciones desactivadas.");
+      setError(null);
+      return next;
+    });
+  }
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -72,6 +120,21 @@ export function ProfileSettingsPageClient() {
               className="mt-2 w-full rounded-2xl border border-white/10 bg-[#120015] px-4 py-3 text-sm text-white"
             />
           </label>
+          <button
+            type="button"
+            onClick={handleSaveProfile}
+            disabled={
+              loading ||
+              savingProfile ||
+              teamName.trim().length === 0 ||
+              teamName.trim() === savedTeamName.trim()
+            }
+            className="w-full rounded-2xl bg-[#00ff85] px-4 py-3 text-sm font-semibold text-[#0b0b0b] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {savingProfile ? "Guardando..." : "Guardar nombre"}
+          </button>
+          {message ? <p className="text-sm text-[#b6ffe2]">{message}</p> : null}
+          {error ? <p className="text-sm text-[#f5a3c1]">{error}</p> : null}
         </div>
       </Card>
 
@@ -84,7 +147,7 @@ export function ProfileSettingsPageClient() {
           </div>
           <button
             type="button"
-            onClick={() => setNotifications((current) => !current)}
+            onClick={handleToggleNotifications}
             className={`h-9 w-16 rounded-full border transition ${
               notifications
                 ? "border-[#00ff85]/40 bg-[#00ff85]/20"
@@ -97,27 +160,6 @@ export function ProfileSettingsPageClient() {
               }`}
             />
           </button>
-        </div>
-
-        <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#120015] px-4 py-3 text-sm">
-          <div>
-            <p className="font-semibold">Tema</p>
-            <p className="text-xs text-white/60">Ajusta el modo visual</p>
-          </div>
-          <div className="flex rounded-full border border-white/10 bg-[#1a001c] p-1 text-xs">
-            {["dark", "light"].map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setTheme(value as "dark" | "light")}
-                className={`rounded-full px-3 py-1.5 font-semibold ${
-                  theme === value ? "bg-[#00ff85] text-[#0b0b0b]" : "text-white/60"
-                }`}
-              >
-                {value === "dark" ? "Dark" : "Light"}
-              </button>
-            ))}
-          </div>
         </div>
       </Card>
 

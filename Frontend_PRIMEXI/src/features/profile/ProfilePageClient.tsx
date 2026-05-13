@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRightLeft, Award, Settings, Trophy } from "lucide-react";
+import { ArrowRightLeft, Award, Crown, Settings, TrendingUp, Trophy } from "lucide-react";
 
 import { getGameweeks, getProfile, getTransfers } from "@/lib/data";
 import { useAuthUser } from "@/lib/useAuthUser";
@@ -188,14 +188,32 @@ export function ProfilePageClient() {
               href="/profile/gameweeks"
               className="rounded-2xl border border-white/10 bg-[#120015] px-3 py-3 text-left transition hover:border-[#00ff85]/30"
             >
-              <p className="text-xs text-white/60">Puntos</p>
+              <Award className="h-4 w-4 text-[#00ff85]" />
+              <p className="mt-2 text-xs text-white/60">Puntos</p>
               <p className="mt-1 font-semibold">Historial GW</p>
+            </Link>
+            <Link
+              href="/profile/ranking"
+              className="rounded-2xl border border-white/10 bg-[#120015] px-3 py-3 text-left transition hover:border-[#00ff85]/30"
+            >
+              <TrendingUp className="h-4 w-4 text-[#04f5ff]" />
+              <p className="mt-2 text-xs text-white/60">Ranking</p>
+              <p className="mt-1 font-semibold">Evolución</p>
+            </Link>
+            <Link
+              href="/profile/captain"
+              className="rounded-2xl border border-white/10 bg-[#120015] px-3 py-3 text-left transition hover:border-[#00ff85]/30"
+            >
+              <Crown className="h-4 w-4 text-[#d7b5ff]" />
+              <p className="mt-2 text-xs text-white/60">Capitán</p>
+              <p className="mt-1 font-semibold">Decisiones</p>
             </Link>
             <Link
               href="/profile/transfers"
               className="rounded-2xl border border-white/10 bg-[#120015] px-3 py-3 text-left transition hover:border-[#00ff85]/30"
             >
-              <p className="text-xs text-white/60">Transfers</p>
+              <ArrowRightLeft className="h-4 w-4 text-[#f0b3ff]" />
+              <p className="mt-2 text-xs text-white/60">Transfers</p>
               <p className="mt-1 font-semibold">Historial</p>
             </Link>
           </div>
